@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSD Event Analyzer</title>
+<style>
+  :root{ --red:#C00000; --shell:#1b1f2a; --shell2:#232838; --shell-line:#333a4d;
+         --nav:#e8eaf0; --nav-muted:#9aa2b5; --bg:#f4f5f8; --card:#fff; --line:#e1e4ec;
+         --on:#e5322d; --off:#7b8296; --ok:#1f9d55; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC","Noto Sans SC",sans-serif;
+       color:#1a1a1a;background:var(--bg);}
+  button{font:inherit;}
+  .app{display:flex;flex-direction:column;height:100vh;}
+
+  /* ---- dark toolbar ---- */
+  .topbar{height:46px;flex:0 0 46px;display:flex;align-items:center;gap:10px;
+          background:var(--shell);color:#fff;padding:0 12px;border-bottom:1px solid var(--shell-line);}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.2px;white-space:nowrap;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--red);}
+  .brand small{font-weight:500;color:var(--nav-muted);letter-spacing:.3px;}
+  .spacer{margin-left:auto;}
+  #status{color:var(--nav-muted);font-size:12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw;}
+  .seg{display:inline-flex;background:var(--shell2);border:1px solid var(--shell-line);border-radius:8px;overflow:hidden;flex:0 0 auto;}
+  .seg button{all:unset;cursor:pointer;padding:5px 10px;font-size:12.5px;color:var(--nav-muted);}
+  .seg button.on{background:#fff;color:var(--red);font-weight:700;}
+  .tbtn{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:600;white-space:nowrap;
+        background:var(--shell2);border:1px solid var(--shell-line);color:#fff;}
+  .tbtn:hover{background:#2c3346;}
+  .tbtn.primary{background:var(--red);border-color:var(--red);}
+  .tbtn.primary:hover{filter:brightness(1.08);}
+
+  /* ---- edit view ---- */
+  .edit{flex:1;display:flex;min-height:0;}
+  .stageCol{flex:1;display:flex;flex-direction:column;min-width:0;background:#0f1218;}
+  .stageBox{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .stage{position:relative;background:#000;}
+  .stage video{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;}
+  .dropHint{color:#aab2c5;text-align:center;font-size:14px;line-height:1.7;padding:30px;border:2px dashed #39405a;border-radius:14px;max-width:560px;}
+  .dropHint b{color:#fff;}
+  .stageBox.dragover .dropHint{border-color:var(--red);color:#fff;}
+
+  .controls{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--shell);color:#fff;border-top:1px solid var(--shell-line);flex-wrap:wrap;}
+  .cbtn{all:unset;cursor:pointer;padding:4px 9px;border-radius:6px;background:var(--shell2);border:1px solid var(--shell-line);font-size:12px;white-space:nowrap;}
+  .cbtn:hover{background:#2c3346;}
+  .cbtn:disabled{opacity:.35;cursor:default;}
+  #scrub{flex:1;min-width:160px;accent-color:var(--red);}
+  #timeLbl{font:12px/1 ui-monospace,Consolas,monospace;color:#dfe3ee;white-space:nowrap;min-width:190px;text-align:right;}
+  .fpsBox{display:flex;align-items:center;gap:5px;color:var(--nav-muted);font-size:12px;}
+  .fpsBox input{width:62px;background:var(--shell2);color:#fff;border:1px solid var(--shell-line);border-radius:5px;padding:3px 5px;font:inherit;}
+
+  .meters{flex:0 0 auto;display:flex;gap:18px;padding:8px 12px;background:#161a24;color:#dfe3ee;border-top:1px solid var(--shell-line);flex-wrap:wrap;}
+  .meter{display:flex;align-items:center;gap:8px;flex:1;min-width:280px;}
+  .meter .mLbl{width:78px;font-weight:600;}
+  .lampDot{width:16px;height:16px;border-radius:50%;background:#555b6b;border:1px solid #000;flex:0 0 16px;}
+  .lampDot.on{background:var(--on);box-shadow:0 0 8px var(--on);}
+  .bar{position:relative;flex:1;height:12px;background:#2a3040;border-radius:6px;overflow:hidden;min-width:80px;}
+  .bar .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:#7b8296;}
+  .bar .fill.on{background:var(--on);}
+  .bar .thr{position:absolute;top:-2px;bottom:-2px;width:2px;background:#ffd84d;left:20%;}
+  .meter .mVal{font:12px ui-monospace,Consolas,monospace;width:52px;text-align:right;}
+  .meter .mState{font-weight:700;width:40px;text-align:center;font-size:11.5px;border-radius:4px;padding:1px 0;background:#2a3040;}
+  .meter .mState.on{background:var(--on);color:#fff;}
+
+  .side{flex:0 0 380px;overflow-y:auto;border-left:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:10px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .card h3{margin:0 0 6px;font-size:13px;}
+  .hint{color:#6b7286;font-size:11.5px;margin:0 0 8px;}
+  .roiRow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;border:1px solid transparent;cursor:pointer;}
+  .roiRow:hover{background:#f4f6fb;}
+  .roiRow.sel{border-color:#c9cfdd;background:#eef1f8;}
+  .roiRow .sw{width:10px;height:30px;border-radius:3px;flex:0 0 10px;}
+  .roiRow .nm{flex:1;min-width:0;overflow:hidden;white-space:nowrap;}
+  .roiRow .nm b{font:600 11.5px ui-monospace,Consolas,monospace;}
+  .roiRow .nm div{color:#6b7286;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .badge{font-size:10px;padding:0 5px;border-radius:4px;background:#eceff5;color:#6b7286;margin-left:4px;font-weight:600;}
+  .badge.req{background:#fde8e8;color:var(--red);}
+  .badge.done{background:#e3f5ea;color:var(--ok);}
+  .roiRow canvas{width:96px;height:40px;background:#0f1218;border-radius:4px;flex:0 0 96px;object-fit:contain;}
+  .sbtn{all:unset;cursor:pointer;padding:3px 8px;border-radius:6px;border:1px solid #cfd4e0;background:#fff;font-size:11.5px;white-space:nowrap;}
+  .sbtn:hover{background:#f0f2f7;}
+  .sbtn.armed{background:var(--red);color:#fff;border-color:var(--red);}
+  .sbtn.pri{background:var(--shell);color:#fff;border-color:var(--shell);}
+  .calib{border-top:1px solid var(--line);padding:8px 0 4px;}
+  .calib:first-of-type{border-top:0;}
+  .calibHead{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px;}
+  .calibHead .calScore{margin-left:auto;font:12px ui-monospace,Consolas,monospace;color:#444;}
+  .crow{display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap;}
+  .crow .v{font:12px ui-monospace,Consolas,monospace;min-width:46px;color:#333;}
+  .crow input[type=range]{flex:1;accent-color:var(--red);}
+  .crow input[type=number]{width:70px;padding:2px 4px;border:1px solid #cfd4e0;border-radius:5px;font:12px ui-monospace,Consolas,monospace;}
+  .grid2{display:grid;grid-template-columns:1fr 80px;gap:4px 8px;align-items:center;}
+  .grid2 input{padding:2px 4px;border:1px solid #cfd4e0;border-radius:5px;font:12px ui-monospace,Consolas,monospace;width:80px;}
+  kbd{font:11px ui-monospace,Consolas,monospace;background:#eceff5;border:1px solid #cfd4e0;border-bottom-width:2px;border-radius:4px;padding:0 4px;}
+
+  /* ---- report view ---- */
+  .report{flex:1;overflow:auto;padding:24px;}
+  .report .card{max-width:900px;margin:0 auto;}
+
+  /* ---- modal / toast ---- */
+  .modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;}
+  .modalOverlay[hidden]{display:none;}
+  .modal{background:#fff;border-radius:12px;max-width:640px;width:calc(100vw - 32px);box-shadow:0 10px 40px rgba(0,0,0,.35);overflow:hidden;}
+  .modal h3{margin:0;padding:12px 16px;background:var(--shell);color:#fff;font-size:14px;}
+  .modal .mb{padding:14px 16px;line-height:1.6;white-space:normal;}
+  .modal pre{background:#0f1218;color:#e7ebf5;padding:8px 10px;border-radius:7px;margin:4px 0 10px;overflow-x:auto;font:12px ui-monospace,Consolas,monospace;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+  .modal pre button{all:unset;cursor:pointer;color:#9aa2b5;font:11px sans-serif;border:1px solid #39405a;border-radius:5px;padding:1px 7px;}
+  .modal .btns{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line);}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--shell);color:#fff;padding:8px 16px;border-radius:8px;
+         box-shadow:0 4px 18px rgba(0,0,0,.3);font-size:13px;z-index:1100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80vw;}
+  #toast.show{opacity:1;}
+  #toast.warn{background:#a8321f;}
+  [hidden]{display:none !important;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>BSD Event Analyzer <small data-i18n="appSub"></small></div>
+    <button class="tbtn primary" id="btnOpen" data-i18n="openVideo"></button>
+    <input type="file" id="fileVideo" accept="video/*,.mkv,.mp4,.mov,.webm,.m4v,.avi" hidden>
+    <div class="seg" id="viewSeg">
+      <button data-view="edit" data-i18n="viewEdit"></button><button data-view="report" data-i18n="viewReport"></button>
+    </div>
+    <button class="tbtn" id="btnSaveSession" data-i18n="saveSession"></button>
+    <button class="tbtn" id="btnLoadSession" data-i18n="loadSession"></button>
+    <input type="file" id="fileSession" accept=".json,application/json" hidden>
+    <span class="spacer"></span>
+    <span id="status"></span>
+    <div class="seg" id="langSeg">
+      <button data-lang="en">EN</button><button data-lang="zhs">简体</button><button data-lang="zht">繁體</button>
+    </div>
+  </header>
+
+  <!-- ================= EDIT VIEW ================= -->
+  <main class="edit" id="viewEdit">
+    <section class="stageCol">
+      <div class="stageBox" id="stageBox">
+        <div class="dropHint" id="dropHint" data-i18n-html="dropHint"></div>
+        <div class="stage" id="stage" hidden>
+          <video id="vid" muted playsinline preload="auto"></video>
+          <canvas id="overlay"></canvas>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="cbtn" id="btnPlay" data-i18n="play" data-i18n-title="tipPlay"></button>
+        <button class="cbtn" data-step="-1s" data-i18n="back1s" data-i18n-title="tipBack1s"></button>
+        <button class="cbtn" data-step="-1f" data-i18n="back1f" data-i18n-title="tipBack1f"></button>
+        <button class="cbtn" data-step="1f" data-i18n="fwd1f" data-i18n-title="tipFwd1f"></button>
+        <button class="cbtn" data-step="1s" data-i18n="fwd1s" data-i18n-title="tipFwd1s"></button>
+        <input type="range" id="scrub" min="0" max="1000000" step="1" value="0">
+        <span id="timeLbl">--:--.--- / --:--.---</span>
+        <span class="fpsBox"><span data-i18n="fpsLabel"></span>
+          <input type="number" id="fpsIn" min="1" max="240" step="0.001">
+          <button class="cbtn" id="btnDetectFps" data-i18n="detectFps" data-i18n-title="tipDetectFps"></button>
+        </span>
+      </div>
+      <div class="meters">
+        <div class="meter" data-side="L"><span class="mLbl" data-i18n="lampL"></span><span class="lampDot"></span>
+          <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+        <div class="meter" data-side="R"><span class="mLbl" data-i18n="lampR"></span><span class="lampDot"></span>
+          <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <h3 data-i18n="roiTitle"></h3>
+        <p class="hint" data-i18n="roiHint"></p>
+        <div id="roiList"></div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="calibTitle"></h3>
+        <p class="hint" data-i18n="calibHint"></p>
+        <div class="calib" data-side="L">
+          <div class="calibHead"><span class="lampDot"></span><span data-i18n="lampL"></span><span class="calScore">—</span></div>
+          <div class="crow">
+            <button class="sbtn pri" data-sample="on" data-i18n="sampleOn"></button><span class="v onVal">—</span>
+            <button class="sbtn" data-sample="off" data-i18n="sampleOff"></button><span class="v offVal">—</span>
+          </div>
+          <div class="crow"><span data-i18n="threshold"></span>
+            <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
+        </div>
+        <div class="calib" data-side="R">
+          <div class="calibHead"><span class="lampDot"></span><span data-i18n="lampR"></span><span class="calScore">—</span></div>
+          <div class="crow">
+            <button class="sbtn pri" data-sample="on" data-i18n="sampleOn"></button><span class="v onVal">—</span>
+            <button class="sbtn" data-sample="off" data-i18n="sampleOff"></button><span class="v offVal">—</span>
+          </div>
+          <div class="crow"><span data-i18n="threshold"></span>
+            <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="redTitle"></h3>
+        <p class="hint" data-i18n="redHint"></p>
+        <div class="grid2">
+          <label for="redHueLo" data-i18n="hueLo"></label><input type="number" id="redHueLo" data-red="hueLo" min="0" max="180" step="1">
+          <label for="redHueHi" data-i18n="hueHi"></label><input type="number" id="redHueHi" data-red="hueHi" min="180" max="360" step="1">
+          <label for="redSMin" data-i18n="sMin"></label><input type="number" id="redSMin" data-red="sMin" min="0" max="1" step="0.01">
+          <label for="redVMin" data-i18n="vMin"></label><input type="number" id="redVMin" data-red="vMin" min="0" max="1" step="0.01">
+        </div>
+        <div class="crow" style="margin-top:8px"><button class="sbtn" id="btnRedReset" data-i18n="resetDefaults"></button></div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="shortcutsTitle"></h3>
+        <p class="hint" style="margin:0" data-i18n-html="shortcutsBody"></p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ================= REPORT VIEW ================= -->
+  <main class="report" id="viewReport" hidden>
+    <div class="card"><h3 data-i18n="viewReport"></h3><p class="hint" data-i18n="reportPlaceholder"></p></div>
+  </main>
+</div>
+
+<div class="modalOverlay" id="modal" hidden>
+  <div class="modal"><h3 id="modalTitle"></h3><div class="mb" id="modalBody"></div><div class="btns" id="modalBtns"></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   ===== PURE LOGIC BEGIN =====
+   No DOM access in this section. Loaded by test_logic.js under Node.
+   ===================================================================== */
+const PureLogic = (function () {
+  const DEFAULT_RED = Object.freeze({ hueLo: 15, hueHi: 345, sMin: 0.45, vMin: 0.35 });
+
+  // RGB 0..255 -> {h: 0..360, s: 0..1, v: 0..1}
+  function rgbToHsv(r, g, b) {
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    const v = max / 255, s = max === 0 ? 0 : d / max;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * ((b - r) / d + 2);
+      else h = 60 * ((r - g) / d + 4);
+      if (h < 0) h += 360;
+    }
+    return { h, s, v };
+  }
+
+  // Red if hue <= hueLo or hue >= hueHi, and S >= sMin, V >= vMin.
+  // Grey pixels (no chroma) are never red.
+  function isRedRgb(r, g, b, p) {
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return false;
+    if (max / 255 < p.vMin) return false;
+    if (d / max < p.sMin) return false;
+    let h;
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+    if (h < 0) h += 360;
+    return h <= p.hueLo || h >= p.hueHi;
+  }
+
+  // data: RGBA byte array (ImageData.data). Returns fraction of red pixels 0..1.
+  function redScore(data, p) {
+    const n = data.length >> 2;
+    if (!n) return 0;
+    let c = 0;
+    if (p.hueLo >= 0 && p.hueLo < 60 && p.hueHi > 300 && p.hueHi <= 360) {
+      // Fast path (exact for this range): a red hue needs R as the max channel,
+      // then hue = 60*(g-b)/d, so compare |g-b| against d scaled by the limits.
+      const kLo = p.hueLo / 60, kHi = (360 - p.hueHi) / 60, vMin = p.vMin * 255, sMin = p.sMin;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (r < g || r < b || r < vMin) continue;
+        const d = r - (g < b ? g : b);
+        if (d === 0 || d < sMin * r) continue;
+        if (g >= b ? (g - b) <= d * kLo : (b - g) <= d * kHi) c++;
+      }
+    } else {
+      for (let i = 0; i < data.length; i += 4) {
+        if (isRedRgb(data[i], data[i + 1], data[i + 2], p)) c++;
+      }
+    }
+    return c / n;
+  }
+
+  // Midpoint between ON and OFF samples; null if invalid (ON must be > OFF).
+  function thresholdFromSamples(on, off) {
+    if (!Number.isFinite(on) || !Number.isFinite(off) || on <= off) return null;
+    return (on + off) / 2;
+  }
+
+  function lampIsOn(score, thr) {
+    return Number.isFinite(score) && Number.isFinite(thr) && score >= thr;
+  }
+
+  function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+
+  // Rectangle from two normalized points, any drag direction.
+  function rectFromPoints(x0, y0, x1, y1) {
+    return clampNormRect({ x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) });
+  }
+
+  // Normalize/clamp a rect into [0,1]; returns null if not a usable rect.
+  function clampNormRect(r) {
+    if (!r || ![r.x, r.y, r.w, r.h].every(Number.isFinite)) return null;
+    let { x, y, w, h } = r;
+    if (w < 0) { x += w; w = -w; }
+    if (h < 0) { y += h; h = -h; }
+    const x0 = clamp(x, 0, 1), y0 = clamp(y, 0, 1);
+    const x1 = clamp(x + w, 0, 1), y1 = clamp(y + h, 0, 1);
+    if (x1 - x0 <= 0 || y1 - y0 <= 0) return null;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  // Move a rect by (dx,dy), keeping it fully inside [0,1].
+  function moveRect(r, dx, dy) {
+    return { x: clamp(r.x + dx, 0, 1 - r.w), y: clamp(r.y + dy, 0, 1 - r.h), w: r.w, h: r.h };
+  }
+
+  // Normalized rect -> integer pixel rect inside a W x H frame (at least 1x1).
+  function normToPx(r, W, H) {
+    let sx = Math.floor(r.x * W), sy = Math.floor(r.y * H);
+    sx = clamp(sx, 0, W - 1); sy = clamp(sy, 0, H - 1);
+    let sw = Math.max(1, Math.round(r.w * W)), sh = Math.max(1, Math.round(r.h * H));
+    sw = Math.min(sw, W - sx); sh = Math.min(sh, H - sy);
+    return { sx, sy, sw, sh };
+  }
+
+  // Seconds -> "MM:SS.mmm" or "H:MM:SS.mmm"
+  function fmtVideoTime(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '--:--.---';
+    let ms = Math.round(sec * 1000);
+    const h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    const m = Math.floor(ms / 60000); ms -= m * 60000;
+    const s = Math.floor(ms / 1000); ms -= s * 1000;
+    const p2 = n => String(n).padStart(2, '0');
+    return (h ? h + ':' + p2(m) : p2(m)) + ':' + p2(s) + '.' + String(ms).padStart(3, '0');
+  }
+
+  // Common frame rates; snap a measured value if within 1.5 %.
+  const STD_FPS = [23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 120];
+  function snapFps(f) {
+    if (!Number.isFinite(f) || f <= 0) return null;
+    let best = null, bestErr = Infinity;
+    for (const s of STD_FPS) { const e = Math.abs(f - s) / s; if (e < bestErr) { bestErr = e; best = s; } }
+    return bestErr <= 0.015 ? best : Math.round(f * 10) / 10;
+  }
+  // Estimate fps from presented-frame media times (rVFC). Uses the 25th
+  // percentile of positive deltas so dropped frames don't bias it low.
+  function estimateFps(mediaTimes) {
+    const d = [];
+    for (let i = 1; i < mediaTimes.length; i++) { const x = mediaTimes[i] - mediaTimes[i - 1]; if (x > 1e-4) d.push(x); }
+    if (d.length < 3) return null;
+    d.sort((a, b) => a - b);
+    return snapFps(1 / d[Math.floor(d.length * 0.25)]);
+  }
+
+  // Session key: identifies the video a session belongs to.
+  function sessionKey(name, size, duration) {
+    return { name: String(name), size: Number(size), duration: Math.round(Number(duration) * 1000) / 1000 };
+  }
+  // Returns list of mismatching field names ([] = match). Duration tolerance 0.5 s.
+  function sessionKeyMismatch(a, b) {
+    if (!a || !b) return ['missing'];
+    const out = [];
+    if (a.name !== b.name) out.push('name');
+    if (a.size !== b.size) out.push('size');
+    const da = Number(a.duration), db = Number(b.duration);
+    if (!(Number.isFinite(da) && Number.isFinite(db) ? Math.abs(da - db) <= 0.5 : da === db)) out.push('duration');
+    return out;
+  }
+
+  return { DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
+           rectFromPoints, clampNormRect, moveRect, normToPx, fmtVideoTime, snapFps, estimateFps,
+           sessionKey, sessionKeyMismatch };
+})();
+/* ===== PURE LOGIC END ===== */
+
+
+/* =====================================================================
+   I18N — all UI strings, one table.
+   ===================================================================== */
+const I18N = {
+  en: {
+    appSub: 'BSD lamp event finder',
+    openVideo: 'Open video…', viewEdit: 'Edit', viewReport: 'Report',
+    saveSession: 'Save session', loadSession: 'Load session',
+    dropHint: 'Open a screen recording (<b>.mkv</b> / .mp4, multi-GB is fine) or drop it here.<br>The file is streamed from disk, never loaded into memory.',
+    play: '▶ Play', pause: '❚❚ Pause',
+    back1s: '−1 s', back1f: '−1 f', fwd1f: '+1 f', fwd1s: '+1 s',
+    tipPlay: 'Play / pause (Space)', tipBack1s: 'Back 1 second ([)', tipBack1f: 'Back 1 frame (,)',
+    tipFwd1f: 'Forward 1 frame (.)', tipFwd1s: 'Forward 1 second (])',
+    fpsLabel: 'fps', detectFps: 'Detect', tipDetectFps: 'Play briefly and measure the frame rate',
+    roiTitle: 'Regions of interest (ROI)',
+    roiHint: 'Pause on a frame, pick an ROI, then drag on the video. Drag inside a box to move it, drag a corner to resize. "Draw" forces a new box even over another ROI.',
+    roiDraw: 'Draw', roiClear: 'Clear', required: 'required', optional: 'optional',
+    roi_LEFT_LAMP: 'Left BSD warning lamp', roi_RIGHT_LAMP: 'Right BSD warning lamp',
+    roi_RL_CAM: 'RL rear-side camera', roi_RR_CAM: 'RR rear-side camera',
+    roi_SPEED: 'Speed readout (thumbnail)', roi_CLOCK: 'Wall-clock overlay (thumbnail)',
+    roi_RL_DIST: 'RL distance box (thumbnail)', roi_RR_DIST: 'RR distance box (thumbnail)',
+    calibTitle: 'Lamp threshold calibration',
+    calibHint: 'Go to a frame where the lamp is red and press Sample ON, then a frame where it is grey and press Sample OFF. The threshold is set to the midpoint; the slider overrides it.',
+    lampL: 'Left lamp', lampR: 'Right lamp',
+    sampleOn: 'Sample ON', sampleOff: 'Sample OFF', threshold: 'Threshold',
+    stateOn: 'ON', stateOff: 'OFF',
+    redTitle: 'Red pixel classifier (HSV)',
+    redHint: 'A pixel counts as red if hue ≤ low or ≥ high, and saturation and value pass. Lamp score = red pixels ÷ ROI pixels.',
+    hueLo: 'Hue ≤ (°)', hueHi: 'Hue ≥ (°)', sMin: 'Saturation ≥', vMin: 'Value ≥', resetDefaults: 'Reset defaults',
+    shortcutsTitle: 'Shortcuts',
+    shortcutsBody: '<kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>[</kbd> <kbd>]</kbd> ±1 s · <kbd>Esc</kbd> cancel drawing',
+    reportPlaceholder: 'Events and the exportable report appear here after scanning (Phase 2–4).',
+    msgNeedVideo: 'Open a video first.', msgNeedRoi: 'Draw the {roi} ROI first.',
+    msgOnLeOff: 'The ON sample ({on}) must be higher than the OFF sample ({off}). Check the frames or the ROI.',
+    msgThrSet: '{lamp}: threshold set to {thr}',
+    msgFpsDetected: 'Frame rate detected: {fps} fps', msgFpsFail: 'Could not measure the frame rate; enter it manually.',
+    msgNoRvfc: 'This browser lacks requestVideoFrameCallback; use a current Chrome or Edge.',
+    msgArmed: 'Drag on the video to draw {roi}.',
+    codecTitle: 'The browser cannot play this video',
+    codecBody: 'Chrome/Edge could not decode the video track ({why}).<br>MKV with H.264 usually plays; HEVC/H.265 (without hardware support), many AVI codecs, and damaged files do not.<br><br>Remux to MP4 (fast, no quality loss):',
+    codecBody2: 'If it still will not play, re-encode to H.264:',
+    noDurTitle: 'Video length unknown',
+    noDurBody: 'The file has no duration or seek index (common for MKV files from an interrupted recording). Seeking and scanning will be unreliable. Remux to MP4 to rebuild the index:',
+    copy: 'Copy', copied: 'Copied', ok: 'OK', cancel: 'Cancel', loadAnyway: 'Load anyway',
+    mismatchTitle: 'Session belongs to a different video',
+    mismatchBody: 'Mismatch in: <b>{fields}</b><br><br>Session: {a}<br>Current: {b}',
+    sessionLoaded: 'Session loaded.', sessionSaved: 'Session saved.', sessionBad: 'Not a valid session file.',
+    sessionPendingVideo: 'Session loaded. It was saved for: {a}',
+    statusNoVideo: 'No video loaded', statusLoading: 'Loading {name}…',
+    frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
+  },
+  zhs: {
+    appSub: 'BSD 报警灯事件分析',
+    openVideo: '打开视频…', viewEdit: '编辑', viewReport: '报告',
+    saveSession: '保存会话', loadSession: '载入会话',
+    dropHint: '打开录屏文件（<b>.mkv</b> / .mp4，支持数 GB 大文件），或拖放到此处。<br>文件直接从磁盘流式读取，不会整体载入内存。',
+    play: '▶ 播放', pause: '❚❚ 暂停',
+    back1s: '−1 秒', back1f: '−1 帧', fwd1f: '+1 帧', fwd1s: '+1 秒',
+    tipPlay: '播放 / 暂停（空格）', tipBack1s: '后退 1 秒（[）', tipBack1f: '后退 1 帧（,）',
+    tipFwd1f: '前进 1 帧（.）', tipFwd1s: '前进 1 秒（]）',
+    fpsLabel: '帧率', detectFps: '检测', tipDetectFps: '短暂播放并测量帧率',
+    roiTitle: '感兴趣区域（ROI）',
+    roiHint: '暂停在某一帧，选择 ROI，然后在视频上拖拽框选。在框内拖动可移动，拖动角点可调整大小。“框选”可强制新建框（即使覆盖其他 ROI）。',
+    roiDraw: '框选', roiClear: '清除', required: '必需', optional: '可选',
+    roi_LEFT_LAMP: '左侧 BSD 报警灯', roi_RIGHT_LAMP: '右侧 BSD 报警灯',
+    roi_RL_CAM: '左后侧摄像头 RL', roi_RR_CAM: '右后侧摄像头 RR',
+    roi_SPEED: '车速显示（缩略图）', roi_CLOCK: '时钟叠加（缩略图）',
+    roi_RL_DIST: 'RL 距离框（缩略图）', roi_RR_DIST: 'RR 距离框（缩略图）',
+    calibTitle: '报警灯阈值标定',
+    calibHint: '跳到报警灯为红色的帧，点“采样 亮”；再跳到灰色的帧，点“采样 灭”。阈值自动取中点，滑块可手动覆盖。',
+    lampL: '左侧灯', lampR: '右侧灯',
+    sampleOn: '采样 亮', sampleOff: '采样 灭', threshold: '阈值',
+    stateOn: '亮', stateOff: '灭',
+    redTitle: '红色像素判定（HSV）',
+    redHint: '色相 ≤ 下限或 ≥ 上限，且饱和度、亮度达标的像素计为红色。灯分数 = 红色像素 ÷ ROI 像素。',
+    hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '饱和度 ≥', vMin: '亮度 ≥', resetDefaults: '恢复默认',
+    shortcutsTitle: '快捷键',
+    shortcutsBody: '<kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框选',
+    reportPlaceholder: '扫描后，事件列表与可导出报告将显示在此（第 2–4 阶段）。',
+    msgNeedVideo: '请先打开视频。', msgNeedRoi: '请先框选 {roi}。',
+    msgOnLeOff: '“亮”采样值（{on}）必须大于“灭”采样值（{off}）。请检查所选帧或 ROI。',
+    msgThrSet: '{lamp}：阈值设为 {thr}',
+    msgFpsDetected: '检测到帧率：{fps} fps', msgFpsFail: '无法测量帧率，请手动输入。',
+    msgNoRvfc: '此浏览器不支持 requestVideoFrameCallback，请使用新版 Chrome 或 Edge。',
+    msgArmed: '在视频上拖拽以框选 {roi}。',
+    codecTitle: '浏览器无法播放此视频',
+    codecBody: 'Chrome/Edge 无法解码视频轨（{why}）。<br>H.264 编码的 MKV 通常可以播放；HEVC/H.265（无硬件支持时）、多数 AVI 编码以及损坏的文件无法播放。<br><br>转封装为 MP4（快速、无损）：',
+    codecBody2: '若仍无法播放，请重新编码为 H.264：',
+    noDurTitle: '视频时长未知',
+    noDurBody: '文件缺少时长或索引（录制中断的 MKV 常见）。跳转和扫描将不可靠。请转封装为 MP4 以重建索引：',
+    copy: '复制', copied: '已复制', ok: '确定', cancel: '取消', loadAnyway: '仍然载入',
+    mismatchTitle: '会话与当前视频不匹配',
+    mismatchBody: '不一致项：<b>{fields}</b><br><br>会话：{a}<br>当前：{b}',
+    sessionLoaded: '会话已载入。', sessionSaved: '会话已保存。', sessionBad: '不是有效的会话文件。',
+    sessionPendingVideo: '会话已载入。对应视频：{a}',
+    statusNoVideo: '未载入视频', statusLoading: '正在载入 {name}…',
+    frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
+  },
+  zht: {
+    appSub: 'BSD 警示燈事件分析',
+    openVideo: '開啟影片…', viewEdit: '編輯', viewReport: '報告',
+    saveSession: '儲存工作階段', loadSession: '載入工作階段',
+    dropHint: '開啟錄影檔（<b>.mkv</b> / .mp4，支援數 GB 大檔），或拖放到此處。<br>檔案直接從磁碟串流讀取，不會整個載入記憶體。',
+    play: '▶ 播放', pause: '❚❚ 暫停',
+    back1s: '−1 秒', back1f: '−1 格', fwd1f: '+1 格', fwd1s: '+1 秒',
+    tipPlay: '播放 / 暫停（空白鍵）', tipBack1s: '後退 1 秒（[）', tipBack1f: '後退 1 格（,）',
+    tipFwd1f: '前進 1 格（.）', tipFwd1s: '前進 1 秒（]）',
+    fpsLabel: '影格率', detectFps: '偵測', tipDetectFps: '短暫播放並量測影格率',
+    roiTitle: '感興趣區域（ROI）',
+    roiHint: '暫停在某一格，選擇 ROI，然後在影片上拖曳框選。在框內拖曳可移動，拖曳角點可調整大小。「框選」可強制新建框（即使覆蓋其他 ROI）。',
+    roiDraw: '框選', roiClear: '清除', required: '必要', optional: '選用',
+    roi_LEFT_LAMP: '左側 BSD 警示燈', roi_RIGHT_LAMP: '右側 BSD 警示燈',
+    roi_RL_CAM: '左後側攝影機 RL', roi_RR_CAM: '右後側攝影機 RR',
+    roi_SPEED: '車速顯示（縮圖）', roi_CLOCK: '時鐘疊加（縮圖）',
+    roi_RL_DIST: 'RL 距離框（縮圖）', roi_RR_DIST: 'RR 距離框（縮圖）',
+    calibTitle: '警示燈門檻校正',
+    calibHint: '跳到警示燈為紅色的影格，按「取樣 亮」；再跳到灰色的影格，按「取樣 滅」。門檻自動取中點，滑桿可手動覆寫。',
+    lampL: '左側燈', lampR: '右側燈',
+    sampleOn: '取樣 亮', sampleOff: '取樣 滅', threshold: '門檻',
+    stateOn: '亮', stateOff: '滅',
+    redTitle: '紅色像素判定（HSV）',
+    redHint: '色相 ≤ 下限或 ≥ 上限，且飽和度、明度達標的像素計為紅色。燈分數 = 紅色像素 ÷ ROI 像素。',
+    hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '飽和度 ≥', vMin: '明度 ≥', resetDefaults: '恢復預設',
+    shortcutsTitle: '快速鍵',
+    shortcutsBody: '<kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框選',
+    reportPlaceholder: '掃描後，事件清單與可匯出報告將顯示於此（第 2–4 階段）。',
+    msgNeedVideo: '請先開啟影片。', msgNeedRoi: '請先框選 {roi}。',
+    msgOnLeOff: '「亮」取樣值（{on}）必須大於「滅」取樣值（{off}）。請檢查所選影格或 ROI。',
+    msgThrSet: '{lamp}：門檻設為 {thr}',
+    msgFpsDetected: '偵測到影格率：{fps} fps', msgFpsFail: '無法量測影格率，請手動輸入。',
+    msgNoRvfc: '此瀏覽器不支援 requestVideoFrameCallback，請使用新版 Chrome 或 Edge。',
+    msgArmed: '在影片上拖曳以框選 {roi}。',
+    codecTitle: '瀏覽器無法播放此影片',
+    codecBody: 'Chrome/Edge 無法解碼視訊軌（{why}）。<br>H.264 編碼的 MKV 通常可播放；HEVC/H.265（無硬體支援時）、多數 AVI 編碼以及損毀的檔案無法播放。<br><br>轉封裝為 MP4（快速、無損）：',
+    codecBody2: '若仍無法播放，請重新編碼為 H.264：',
+    noDurTitle: '影片長度未知',
+    noDurBody: '檔案缺少長度或索引（錄影中斷的 MKV 常見）。跳轉與掃描將不可靠。請轉封裝為 MP4 以重建索引：',
+    copy: '複製', copied: '已複製', ok: '確定', cancel: '取消', loadAnyway: '仍然載入',
+    mismatchTitle: '工作階段與目前影片不符',
+    mismatchBody: '不一致項目：<b>{fields}</b><br><br>工作階段：{a}<br>目前：{b}',
+    sessionLoaded: '工作階段已載入。', sessionSaved: '工作階段已儲存。', sessionBad: '不是有效的工作階段檔案。',
+    sessionPendingVideo: '工作階段已載入。對應影片：{a}',
+    statusNoVideo: '尚未載入影片', statusLoading: '正在載入 {name}…',
+    frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
+  }
+};
+
+
+/* =====================================================================
+   APP STATE + PERSISTENCE
+   ===================================================================== */
+const PL = PureLogic;
+const $ = id => document.getElementById(id);
+const LS_KEY = 'bsdEventAnalyzer.v1';
+const ROI_DEFS = [
+  { key: 'LEFT_LAMP',  req: true,  color: '#ff4d4d' },
+  { key: 'RIGHT_LAMP', req: true,  color: '#ff9f1a' },
+  { key: 'RL_CAM',     req: true,  color: '#3fa9f5' },
+  { key: 'RR_CAM',     req: true,  color: '#2ecc71' },
+  { key: 'SPEED',      req: false, color: '#c084fc' },
+  { key: 'CLOCK',      req: false, color: '#f5d90a' },
+  { key: 'RL_DIST',    req: false, color: '#22d3ee' },
+  { key: 'RR_DIST',    req: false, color: '#a3e635' }
+];
+const LAMP_ROI = { L: 'LEFT_LAMP', R: 'RIGHT_LAMP' };
+
+function defaultState() {
+  return {
+    lang: 'en', view: 'edit', fps: 30,
+    rois: {},
+    red: { ...PL.DEFAULT_RED },
+    lamps: { L: { thr: 0.2, on: null, off: null }, R: { thr: 0.2, on: null, off: null } }
+  };
+}
+
+// Merge untrusted settings (localStorage / session file) into a clean state.
+function sanitizeSettings(src, base) {
+  const s = base || defaultState();
+  if (!src || typeof src !== 'object') return s;
+  if (I18N[src.lang]) s.lang = src.lang;
+  if (src.view === 'edit' || src.view === 'report') s.view = src.view;
+  if (Number.isFinite(src.fps) && src.fps > 0 && src.fps <= 240) s.fps = src.fps;
+  if (src.rois && typeof src.rois === 'object') {
+    s.rois = {};
+    for (const d of ROI_DEFS) { const r = PL.clampNormRect(src.rois[d.key]); if (r) s.rois[d.key] = r; }
+  }
+  if (src.red && typeof src.red === 'object') {
+    for (const k of Object.keys(PL.DEFAULT_RED)) if (Number.isFinite(src.red[k])) s.red[k] = src.red[k];
+  }
+  if (src.lamps && typeof src.lamps === 'object') {
+    for (const side of ['L', 'R']) {
+      const l = src.lamps[side]; if (!l) continue;
+      if (Number.isFinite(l.thr)) s.lamps[side].thr = PL.clamp(l.thr, 0, 1);
+      s.lamps[side].on = Number.isFinite(l.on) ? l.on : null;
+      s.lamps[side].off = Number.isFinite(l.off) ? l.off : null;
+    }
+  }
+  return s;
+}
+
+function loadLocal() {
+  try { return sanitizeSettings(JSON.parse(localStorage.getItem(LS_KEY) || 'null')); }
+  catch (e) { return defaultState(); }
+}
+
+let S = loadLocal();
+let saveTimer = null, storageWarned = false;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(S)); }
+    catch (e) { if (!storageWarned) { storageWarned = true; toast(t('storageFail'), true); } }
+  }, 300);
+}
+
+// Video runtime state (not persisted)
+let V = { file: null, url: null, meta: null, ready: false, pendingSeek: null, scores: { L: null, R: null }, expectKey: null };
+
+
+/* =====================================================================
+   I18N helpers, toast, modal
+   ===================================================================== */
+function t(key, vars) {
+  let s = (I18N[S.lang] && I18N[S.lang][key]) ?? I18N.en[key] ?? key;
+  if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+  return s;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function applyI18n() {
+  document.documentElement.lang = S.lang === 'en' ? 'en' : S.lang === 'zhs' ? 'zh-Hans' : 'zh-Hant';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
+  renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps();
+}
+
+let toastTimer = null;
+function toast(msg, warn) {
+  const el = $('toast'); el.textContent = msg; el.classList.toggle('warn', !!warn); el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), warn ? 4500 : 2200);
+}
+
+// buttons: [{label, value, primary}] -> Promise<value>
+function showModal(title, html, buttons) {
+  return new Promise(resolve => {
+    $('modalTitle').textContent = title;
+    $('modalBody').innerHTML = html;
+    const bx = $('modalBtns'); bx.innerHTML = '';
+    (buttons || [{ label: t('ok'), value: true, primary: true }]).forEach(b => {
+      const el = document.createElement('button'); el.className = 'sbtn' + (b.primary ? ' pri' : ''); el.textContent = b.label;
+      el.onclick = () => { $('modal').hidden = true; resolve(b.value); };
+      bx.appendChild(el);
+    });
+    $('modalBody').querySelectorAll('pre button').forEach(btn => {
+      btn.textContent = t('copy');
+      btn.onclick = () => {
+        const txt = btn.parentElement.querySelector('code').textContent;
+        (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
+          () => { btn.textContent = t('copied'); }, () => { window.prompt(t('copy'), txt); });
+      };
+    });
+    $('modal').hidden = false;
+  });
+}
+function cmdBlock(cmd) { return '<pre><code>' + esc(cmd) + '</code><button></button></pre>'; }
+
+function showCodecHelp(why) {
+  const n = V.file ? V.file.name : 'in.mkv';
+  const base = n.replace(/\.[^.]+$/, '');
+  showModal(t('codecTitle'),
+    t('codecBody', { why: esc(why) }) +
+    cmdBlock(`ffmpeg -i "${n}" -c copy "${base}.mp4"`) +
+    t('codecBody2') +
+    cmdBlock(`ffmpeg -i "${n}" -c:v libx264 -crf 23 -an "${base}.mp4"`));
+}
+
+
+/* =====================================================================
+   VIDEO LOADING + PLAYER
+   ===================================================================== */
+const vid = $('vid');
+const overlay = $('overlay');
+const octx = overlay.getContext('2d');
+const sampleCanvas = document.createElement('canvas');
+const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+let loadTimer = null;
+
+function openVideoFile(f) {
+  if (!f) return;
+  if (V.url) URL.revokeObjectURL(V.url);
+  V.file = f; V.url = URL.createObjectURL(f); V.meta = null; V.ready = false; V.pendingSeek = null;
+  V.scores = { L: null, R: null };
+  $('stage').hidden = true; $('dropHint').hidden = false;
+  updateStatus(t('statusLoading', { name: f.name }));
+  vid.src = V.url;          // streamed by the browser from disk; never read into JS memory
+  vid.load();
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(() => { if (!V.ready && V.file === f) showCodecHelp('timeout: no metadata after 20 s'); }, 20000);
+}
+
+vid.addEventListener('loadedmetadata', () => {
+  if (!V.file) return;
+  clearTimeout(loadTimer);
+  if (!vid.videoWidth || !vid.videoHeight) { showCodecHelp('no decodable video track'); return; }
+  V.ready = true;
+  V.meta = PL.sessionKey(V.file.name, V.file.size, vid.duration);
+  $('dropHint').hidden = true; $('stage').hidden = false;
+  layoutStage(); updateStatus(); updateTimeUI();
+  if (!Number.isFinite(vid.duration) || vid.duration <= 0) {
+    const n = V.file.name, base = n.replace(/\.[^.]+$/, '');
+    showModal(t('noDurTitle'), t('noDurBody') + cmdBlock(`ffmpeg -i "${n}" -c copy "${base}.mp4"`));
+  }
+  if (V.expectKey) {
+    const mm = PL.sessionKeyMismatch(V.expectKey, V.meta);
+    if (mm.length) toast(t('mismatchTitle') + ' (' + mm.join(', ') + ')', true);
+    V.expectKey = null;
+  }
+  if ('requestVideoFrameCallback' in vid) vid.requestVideoFrameCallback(onVideoFrame);
+  else toast(t('msgNoRvfc'), true);
+});
+
+vid.addEventListener('error', () => {
+  if (!V.file) return;
+  clearTimeout(loadTimer);
+  const e = vid.error;
+  const names = { 1: 'aborted', 2: 'network/read error', 3: 'decode error', 4: 'format or codec not supported' };
+  showCodecHelp(e ? `MediaError ${e.code}: ${names[e.code] || ''} ${e.message || ''}`.trim() : 'unknown error');
+  updateStatus();
+});
+
+function onVideoFrame() {
+  scheduleRefresh();
+  vid.requestVideoFrameCallback(onVideoFrame);
+}
+vid.addEventListener('seeked', () => {
+  if (V.pendingSeek != null) { const p = V.pendingSeek; V.pendingSeek = null; vid.currentTime = p; }
+  scheduleRefresh();
+});
+vid.addEventListener('timeupdate', updateTimeUI);
+vid.addEventListener('play', updatePlayBtn);
+vid.addEventListener('pause', () => { updatePlayBtn(); scheduleRefresh(); });
+
+// Coalesces rapid scrub input: only one seek in flight, latest target wins.
+function requestSeek(tSec) {
+  if (!V.ready) return;
+  const dur = Number.isFinite(vid.duration) ? vid.duration : Infinity;
+  tSec = PL.clamp(tSec, 0, dur);
+  if (vid.seeking) { V.pendingSeek = tSec; return; }
+  vid.currentTime = tSec;
+  updateTimeUI(tSec);
+}
+function curTime() { return V.pendingSeek != null ? V.pendingSeek : vid.currentTime; }
+function step(kind) {
+  if (!V.ready) return;
+  vid.pause();
+  const n = parseFloat(kind);
+  const dt = kind.endsWith('f') ? n / (S.fps || 30) : n;
+  requestSeek(curTime() + dt);
+}
+function togglePlay() { if (!V.ready) return; vid.paused ? vid.play().catch(() => {}) : vid.pause(); }
+function updatePlayBtn() { $('btnPlay').textContent = vid.paused ? t('play') : t('pause'); }
+
+let scrubbing = false;
+function updateTimeUI(forceT) {
+  const tt = Number.isFinite(forceT) ? forceT : vid.currentTime;
+  const dur = vid.duration;
+  $('timeLbl').textContent = PL.fmtVideoTime(V.ready ? tt : NaN) + ' / ' + PL.fmtVideoTime(V.ready ? dur : NaN) +
+    (V.ready ? `  ${t('frame')} ${Math.round(tt * S.fps)}` : '');
+  if (!scrubbing && Number.isFinite(dur) && dur > 0) $('scrub').value = Math.round(tt / dur * 1e6);
+}
+
+function updateStatus(override) {
+  const el = $('status');
+  if (override) { el.textContent = override; return; }
+  if (!V.ready || !V.file) { el.textContent = V.file ? '' : t('statusNoVideo'); return; }
+  const gb = V.file.size / 1073741824;
+  const sz = gb >= 1 ? gb.toFixed(2) + ' GB' : (V.file.size / 1048576).toFixed(0) + ' MB';
+  el.textContent = `${V.file.name} · ${vid.videoWidth}×${vid.videoHeight} · ${PL.fmtVideoTime(vid.duration)} · ${sz}`;
+  el.title = el.textContent;
+}
+
+function layoutStage() {
+  if (!V.ready) return;
+  const box = $('stageBox').getBoundingClientRect();
+  const ar = vid.videoWidth / vid.videoHeight;
+  let w = box.width - 16, h = w / ar;
+  if (h > box.height - 16) { h = box.height - 16; w = h * ar; }
+  w = Math.max(50, Math.floor(w)); h = Math.max(30, Math.floor(h));
+  const st = $('stage'); st.style.width = w + 'px'; st.style.height = h + 'px';
+  const dpr = window.devicePixelRatio || 1;
+  overlay.width = Math.round(w * dpr); overlay.height = Math.round(h * dpr);
+  drawOverlay();
+}
+new ResizeObserver(layoutStage).observe($('stageBox'));
+
+async function detectFps() {
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  if (!('requestVideoFrameCallback' in vid)) return toast(t('msgNoRvfc'), true);
+  const t0 = vid.currentTime, times = [];
+  let done = false;
+  const cb = (now, md) => { times.push(md.mediaTime); if (!done && times.length < 40) vid.requestVideoFrameCallback(cb); };
+  vid.requestVideoFrameCallback(cb);
+  vid.playbackRate = 1;
+  try { await vid.play(); } catch (e) { return toast(t('msgFpsFail'), true); }
+  const start = performance.now();
+  await new Promise(res => { const iv = setInterval(() => { if (times.length >= 40 || performance.now() - start > 3000) { clearInterval(iv); res(); } }, 50); });
+  done = true; vid.pause(); requestSeek(t0);
+  const f = PL.estimateFps(times);
+  if (!f) return toast(t('msgFpsFail'), true);
+  S.fps = f; $('fpsIn').value = f; scheduleSave(); updateTimeUI();
+  toast(t('msgFpsDetected', { fps: f }));
+}
+
+
+/* =====================================================================
+   LIVE LAMP SCORING + ROI THUMBNAILS
+   ===================================================================== */
+// Draw only the ROI region of the current frame into a small canvas and return its pixels.
+function grabRoi(roi, maxDim) {
+  const W = vid.videoWidth, H = vid.videoHeight;
+  if (!W || !H || !roi) return null;
+  const p = PL.normToPx(roi, W, H);
+  const k = Math.min(1, maxDim / Math.max(p.sw, p.sh));
+  const dw = Math.max(1, Math.round(p.sw * k)), dh = Math.max(1, Math.round(p.sh * k));
+  if (sampleCanvas.width !== dw || sampleCanvas.height !== dh) { sampleCanvas.width = dw; sampleCanvas.height = dh; }
+  sctx.drawImage(vid, p.sx, p.sy, p.sw, p.sh, 0, 0, dw, dh);
+  return sctx.getImageData(0, 0, dw, dh);
+}
+
+function scoreLamp(side) {
+  const img = grabRoi(S.rois[LAMP_ROI[side]], 64);
+  return img ? PL.redScore(img.data, S.red) : null;
+}
+
+let refreshQueued = false;
+function scheduleRefresh() {
+  if (refreshQueued) return;
+  refreshQueued = true;
+  requestAnimationFrame(() => { refreshQueued = false; refreshLive(); });
+}
+function refreshLive() {
+  if (!V.ready || vid.readyState < 2) return;
+  V.scores.L = scoreLamp('L'); V.scores.R = scoreLamp('R');
+  renderLamps(); updateThumbs(); updateTimeUI();
+}
+
+function renderLamps() {
+  for (const side of ['L', 'R']) {
+    const sc = V.scores[side], thr = S.lamps[side].thr, on = PL.lampIsOn(sc, thr);
+    const has = Number.isFinite(sc);
+    const m = document.querySelector(`.meter[data-side="${side}"]`);
+    m.querySelector('.fill').style.width = (has ? sc * 100 : 0) + '%';
+    m.querySelector('.fill').classList.toggle('on', on);
+    m.querySelector('.thr').style.left = `calc(${thr * 100}% - 1px)`;
+    m.querySelector('.mVal').textContent = has ? sc.toFixed(3) : '—';
+    const st = m.querySelector('.mState'); st.textContent = has ? (on ? t('stateOn') : t('stateOff')) : '—'; st.classList.toggle('on', on);
+    m.querySelector('.lampDot').classList.toggle('on', on);
+    const c = document.querySelector(`.calib[data-side="${side}"]`);
+    c.querySelector('.lampDot').classList.toggle('on', on);
+    c.querySelector('.calScore').textContent = has ? sc.toFixed(3) : '—';
+    const l = S.lamps[side];
+    c.querySelector('.onVal').textContent = Number.isFinite(l.on) ? l.on.toFixed(3) : '—';
+    c.querySelector('.offVal').textContent = Number.isFinite(l.off) ? l.off.toFixed(3) : '—';
+    const rg = c.querySelector('.thrRange'), nm = c.querySelector('.thrNum');
+    if (document.activeElement !== rg) rg.value = thr;
+    if (document.activeElement !== nm) nm.value = thr.toFixed(3);
+  }
+}
+
+function updateThumbs() {
+  for (const d of ROI_DEFS) {
+    const cv = document.querySelector(`.roiRow[data-roi="${d.key}"] canvas`);
+    if (!cv) continue;
+    const c = cv.getContext('2d');
+    const r = S.rois[d.key];
+    if (!r || !V.ready) { c.clearRect(0, 0, cv.width, cv.height); continue; }
+    const p = PL.normToPx(r, vid.videoWidth, vid.videoHeight);
+    const k = Math.min(cv.width / p.sw, cv.height / p.sh);
+    const dw = p.sw * k, dh = p.sh * k;
+    c.fillStyle = '#0f1218'; c.fillRect(0, 0, cv.width, cv.height);
+    c.drawImage(vid, p.sx, p.sy, p.sw, p.sh, (cv.width - dw) / 2, (cv.height - dh) / 2, dw, dh);
+  }
+}
+
+function sampleLamp(side, which) {
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  if (!S.rois[LAMP_ROI[side]]) return toast(t('msgNeedRoi', { roi: LAMP_ROI[side] }), true);
+  const sc = scoreLamp(side);
+  if (!Number.isFinite(sc)) return;
+  const l = S.lamps[side];
+  l[which] = sc;
+  if (Number.isFinite(l.on) && Number.isFinite(l.off)) {
+    const thr = PL.thresholdFromSamples(l.on, l.off);
+    if (thr == null) toast(t('msgOnLeOff', { on: l.on.toFixed(3), off: l.off.toFixed(3) }), true);
+    else { l.thr = thr; toast(t('msgThrSet', { lamp: t(side === 'L' ? 'lampL' : 'lampR'), thr: thr.toFixed(3) })); }
+  }
+  V.scores[side] = sc;
+  renderLamps(); scheduleSave();
+}
+
+
+/* =====================================================================
+   ROI EDITOR (overlay canvas)
+   ===================================================================== */
+let selRoi = 'LEFT_LAMP';
+let armed = false;         // "Draw" pressed: next drag always draws a new box
+let drag = null;
+
+function renderRoiList() {
+  const box = $('roiList'); box.innerHTML = '';
+  for (const d of ROI_DEFS) {
+    const set = !!S.rois[d.key];
+    const row = document.createElement('div');
+    row.className = 'roiRow' + (d.key === selRoi ? ' sel' : '');
+    row.dataset.roi = d.key;
+    row.innerHTML =
+      `<span class="sw" style="background:${d.color}"></span>` +
+      `<div class="nm"><b>${d.key}</b><span class="badge ${set ? 'done' : d.req ? 'req' : ''}">${set ? '✓' : t(d.req ? 'required' : 'optional')}</span>` +
+      `<div>${esc(t('roi_' + d.key))}</div></div>` +
+      `<canvas width="192" height="80"></canvas>` +
+      `<button class="sbtn${armed && d.key === selRoi ? ' armed' : ''}" data-act="draw">${esc(t('roiDraw'))}</button>` +
+      `<button class="sbtn" data-act="clear">${esc(t('roiClear'))}</button>`;
+    row.addEventListener('click', e => {
+      const act = e.target.dataset && e.target.dataset.act;
+      selRoi = d.key;
+      if (act === 'draw') { armed = true; if (V.ready) { vid.pause(); toast(t('msgArmed', { roi: d.key })); } }
+      else if (act === 'clear') { delete S.rois[d.key]; armed = false; scheduleSave(); scheduleRefresh(); }
+      else armed = false;
+      renderRoiList(); drawOverlay();
+    });
+    box.appendChild(row);
+  }
+  updateThumbs();
+}
+
+function roiColor(key) { return (ROI_DEFS.find(d => d.key === key) || {}).color || '#fff'; }
+
+function drawOverlay() {
+  const W = overlay.width, H = overlay.height, dpr = window.devicePixelRatio || 1;
+  octx.clearRect(0, 0, W, H);
+  octx.font = `${Math.round(11 * dpr)}px ui-monospace,Consolas,monospace`;
+  octx.textBaseline = 'bottom';
+  const order = ROI_DEFS.map(d => d.key).filter(k => k !== selRoi).concat([selRoi]);
+  for (const k of order) {
+    const r = S.rois[k]; if (!r) continue;
+    const x = r.x * W, y = r.y * H, w = r.w * W, h = r.h * H, sel = k === selRoi, col = roiColor(k);
+    if (sel) { octx.fillStyle = col + '22'; octx.fillRect(x, y, w, h); }
+    octx.lineWidth = (sel ? 2.5 : 1.5) * dpr; octx.strokeStyle = col;
+    octx.setLineDash(sel ? [] : [5 * dpr, 3 * dpr]); octx.strokeRect(x, y, w, h); octx.setLineDash([]);
+    const tw = octx.measureText(k).width + 6 * dpr, th = 14 * dpr;
+    const ly = y - th < 0 ? y + h + th : y;
+    octx.fillStyle = 'rgba(0,0,0,.7)'; octx.fillRect(x, ly - th, tw, th);
+    octx.fillStyle = col; octx.fillText(k, x + 3 * dpr, ly - 1 * dpr);
+    if (sel) {
+      const hs = 7 * dpr;
+      octx.fillStyle = '#fff';
+      for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
+        octx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs); octx.strokeRect(cx - hs / 2, cy - hs / 2, hs, hs);
+      }
+    }
+  }
+}
+
+function normPt(e) {
+  const b = overlay.getBoundingClientRect();
+  return { x: PL.clamp((e.clientX - b.left) / b.width, 0, 1), y: PL.clamp((e.clientY - b.top) / b.height, 0, 1), b };
+}
+function hitCorner(r, p) {
+  if (!r) return null;
+  const tx = 8 / p.b.width, ty = 8 / p.b.height;
+  const cs = { tl: [r.x, r.y], tr: [r.x + r.w, r.y], bl: [r.x, r.y + r.h], br: [r.x + r.w, r.y + r.h] };
+  for (const [k, [cx, cy]] of Object.entries(cs)) if (Math.abs(p.x - cx) <= tx && Math.abs(p.y - cy) <= ty) return k;
+  return null;
+}
+function inside(r, p) { return r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+function hitRoi(p) {
+  if (inside(S.rois[selRoi], p)) return selRoi;
+  let best = null, area = Infinity;
+  for (const d of ROI_DEFS) { const r = S.rois[d.key]; if (inside(r, p) && r.w * r.h < area) { best = d.key; area = r.w * r.h; } }
+  return best;
+}
+
+overlay.addEventListener('pointerdown', e => {
+  if (!V.ready || e.button !== 0) return;
+  vid.pause();
+  const p = normPt(e);
+  const orig = S.rois[selRoi] ? { ...S.rois[selRoi] } : null;
+  if (!armed && !e.shiftKey) {
+    const c = hitCorner(S.rois[selRoi], p);
+    if (c) {
+      const r = S.rois[selRoi];
+      const fx = c[1] === 'l' ? r.x + r.w : r.x, fy = c[0] === 't' ? r.y + r.h : r.y;
+      drag = { mode: 'resize', fx, fy, key: selRoi, orig };
+    } else {
+      const k = hitRoi(p);
+      if (k) { selRoi = k; drag = { mode: 'move', start: p, key: k, orig: { ...S.rois[k] } }; renderRoiList(); }
+    }
+  }
+  if (!drag) drag = { mode: 'draw', start: p, key: selRoi, orig };
+  overlay.setPointerCapture(e.pointerId);
+  drawOverlay();
+});
+overlay.addEventListener('pointermove', e => {
+  if (!V.ready) return;
+  const p = normPt(e);
+  if (!drag) {
+    const c = !armed && hitCorner(S.rois[selRoi], p);
+    overlay.style.cursor = c ? (c === 'tl' || c === 'br' ? 'nwse-resize' : 'nesw-resize') : (!armed && hitRoi(p) ? 'move' : 'crosshair');
+    return;
+  }
+  if (drag.mode === 'draw') { const r = PL.rectFromPoints(drag.start.x, drag.start.y, p.x, p.y); if (r) S.rois[drag.key] = r; }
+  else if (drag.mode === 'resize') { const r = PL.rectFromPoints(drag.fx, drag.fy, p.x, p.y); if (r) S.rois[drag.key] = r; }
+  else if (drag.mode === 'move') S.rois[drag.key] = PL.moveRect(drag.orig, p.x - drag.start.x, p.y - drag.start.y);
+  drawOverlay();
+});
+function endDrag(e, cancel) {
+  if (!drag) return;
+  const r = S.rois[drag.key];
+  const b = overlay.getBoundingClientRect();
+  const tooSmall = !r || r.w * b.width < 3 || r.h * b.height < 3;
+  if (cancel || (drag.mode !== 'move' && tooSmall)) {
+    if (drag.orig) S.rois[drag.key] = drag.orig; else delete S.rois[drag.key];
+  } else if (drag.mode === 'draw') armed = false;
+  drag = null;
+  renderRoiList(); drawOverlay(); scheduleSave(); scheduleRefresh();
+}
+overlay.addEventListener('pointerup', e => endDrag(e, false));
+overlay.addEventListener('pointercancel', e => endDrag(e, true));
+
+
+/* =====================================================================
+   SESSION JSON
+   ===================================================================== */
+function downloadText(name, text, mime) {
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function buildSession() {
+  return {
+    app: 'BSD-Event-Analyzer', schema: 1, savedAt: new Date().toISOString(),
+    video: V.meta || null,
+    settings: { fps: S.fps, rois: S.rois, red: S.red, lamps: S.lamps }
+  };
+}
+function saveSession() {
+  const base = V.file ? V.file.name.replace(/\.[^.]+$/, '') : 'bsd';
+  downloadText(base + '_bsd_session.json', JSON.stringify(buildSession(), null, 2), 'application/json');
+  toast(t('sessionSaved'));
+}
+function keyText(k) {
+  if (!k) return '—';
+  return `${esc(k.name)} · ${(k.size / 1048576).toFixed(1)} MB · ${PL.fmtVideoTime(k.duration)}`;
+}
+async function loadSessionText(text) {
+  let d;
+  try { d = JSON.parse(text); } catch (e) { return toast(t('sessionBad'), true); }
+  if (!d || d.app !== 'BSD-Event-Analyzer' || !d.settings) return toast(t('sessionBad'), true);
+  if (V.meta && d.video) {
+    const mm = PL.sessionKeyMismatch(d.video, V.meta);
+    if (mm.length) {
+      const ok = await showModal(t('mismatchTitle'),
+        t('mismatchBody', { fields: mm.join(', '), a: keyText(d.video), b: keyText(V.meta) }),
+        [{ label: t('cancel'), value: false }, { label: t('loadAnyway'), value: true, primary: true }]);
+      if (!ok) return;
+    }
+  }
+  const keep = { lang: S.lang, view: S.view };
+  S = sanitizeSettings({ ...d.settings, ...keep });
+  if (!V.meta && d.video) { V.expectKey = d.video; toast(t('sessionPendingVideo', { a: d.video.name })); }
+  else toast(t('sessionLoaded'));
+  $('fpsIn').value = S.fps; syncRedInputs();
+  renderRoiList(); drawOverlay(); scheduleRefresh(); renderLamps(); scheduleSave();
+}
+
+
+/* =====================================================================
+   WIRING
+   ===================================================================== */
+function setView(v) {
+  S.view = v;
+  $('viewEdit').hidden = v !== 'edit'; $('viewReport').hidden = v !== 'report';
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  if (v === 'edit') requestAnimationFrame(layoutStage);
+  scheduleSave();
+}
+function syncRedInputs() { document.querySelectorAll('[data-red]').forEach(el => { el.value = S.red[el.dataset.red]; }); }
+
+$('btnOpen').onclick = () => $('fileVideo').click();
+$('fileVideo').onchange = e => { openVideoFile(e.target.files[0]); e.target.value = ''; };
+$('btnSaveSession').onclick = saveSession;
+$('btnLoadSession').onclick = () => $('fileSession').click();
+$('fileSession').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) f.text().then(loadSessionText); };
+document.querySelectorAll('#langSeg button').forEach(b => b.onclick = () => { S.lang = b.dataset.lang; applyI18n(); scheduleSave(); });
+document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.view));
+$('btnPlay').onclick = togglePlay;
+document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => step(b.dataset.step));
+$('btnDetectFps').onclick = detectFps;
+$('fpsIn').value = S.fps;
+$('fpsIn').onchange = e => { const f = parseFloat(e.target.value); if (f > 0 && f <= 240) { S.fps = f; scheduleSave(); updateTimeUI(); } else e.target.value = S.fps; };
+
+const scrub = $('scrub');
+scrub.addEventListener('pointerdown', () => { scrubbing = true; vid.pause(); });
+scrub.addEventListener('input', () => { if (Number.isFinite(vid.duration)) requestSeek(scrub.value / 1e6 * vid.duration); });
+scrub.addEventListener('change', () => { scrubbing = false; });
+window.addEventListener('pointerup', () => { scrubbing = false; });
+
+document.querySelectorAll('.calib').forEach(c => {
+  const side = c.dataset.side;
+  c.querySelectorAll('[data-sample]').forEach(b => b.onclick = () => sampleLamp(side, b.dataset.sample));
+  const setThr = v => { v = parseFloat(v); if (Number.isFinite(v)) { S.lamps[side].thr = PL.clamp(v, 0, 1); renderLamps(); scheduleSave(); } };
+  c.querySelector('.thrRange').addEventListener('input', e => setThr(e.target.value));
+  c.querySelector('.thrNum').addEventListener('change', e => setThr(e.target.value));
+});
+
+document.querySelectorAll('[data-red]').forEach(el => el.addEventListener('change', () => {
+  const v = parseFloat(el.value);
+  if (Number.isFinite(v)) { S.red[el.dataset.red] = v; scheduleSave(); scheduleRefresh(); } else el.value = S.red[el.dataset.red];
+}));
+$('btnRedReset').onclick = () => { S.red = { ...PL.DEFAULT_RED }; syncRedInputs(); scheduleSave(); scheduleRefresh(); };
+
+// drag & drop a video onto the stage
+const sb = $('stageBox');
+sb.addEventListener('dragover', e => { e.preventDefault(); sb.classList.add('dragover'); });
+sb.addEventListener('dragleave', () => sb.classList.remove('dragover'));
+sb.addEventListener('drop', e => {
+  e.preventDefault(); sb.classList.remove('dragover');
+  const f = e.dataTransfer.files[0]; if (f) openVideoFile(f);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,select') || !$('modal').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (S.view !== 'edit') return;
+  const k = e.key;
+  if (k === ' ') { e.preventDefault(); togglePlay(); }
+  else if (k === ',') step('-1f');
+  else if (k === '.') step('1f');
+  else if (k === '[') step('-1s');
+  else if (k === ']') step('1s');
+  else if (k === 'Escape') { if (drag) endDrag(null, true); armed = false; renderRoiList(); drawOverlay(); }
+});
+
+syncRedInputs();
+setView(S.view);
+applyI18n();
+</script>
+</body>
+</html>
