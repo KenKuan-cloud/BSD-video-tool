@@ -505,12 +505,125 @@ section('i18n completeness (EN / 简体 / 繁體)', () => {
   for (const r of ['rise', 'decay', 'flat', 'symmetric', 'few']) used.add('rvSug_' + r);
   for (const s of ['L', 'R', 'A']) used.add('lamp' + s);
   const roiKeys = [...script.matchAll(/\{ key: '([A-Z_]+)'/g)].map(m => m[1]);
-  ok(roiKeys.length === 11, '11 ROI definitions', roiKeys);
+  ok(roiKeys.length === 13, '13 ROI definitions', roiKeys);
   roiKeys.forEach(k => used.add('roi_' + k));
   const undef = [...used].filter(k => !(k in I18N.en));
   ok(!undef.length, 'all referenced keys defined', undef);
   const unused = en.filter(k => !used.has(k));
   console.log(`      (${en.length} strings x 3 languages, ${used.size} referenced${unused.length ? ', unused: ' + unused.join(' ') : ''})`);
+});
+
+// ---------------- Phase 5: detection zone ----------------
+// Synthetic camera crop: asphalt noise; optional car rectangle, global gain, lane dash.
+function roadImage(w, h, opts) {
+  const o = Object.assign({ gain: 1, car: null, carRGB: [200, 30, 30], carEdges: false, dash: null, seed: 1 }, opts);
+  const r = rng(o.seed), d = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, g = 92 + (r() - 0.5) * 16;
+    let px = [g, g + 2, g + 5];
+    if (o.dash && x >= o.dash[0] && x < o.dash[1] && y >= o.dash[2] && y < o.dash[3]) px = [235, 235, 230];
+    if (o.car && x >= o.car[0] && x < o.car[1] && y >= o.car[2] && y < o.car[3]) {
+      px = o.carRGB.slice();
+      if (o.carEdges && ((x - o.car[0]) % 6 < 2 || (y - o.car[2]) % 6 < 2)) px = [20, 20, 25];   // windows / panel gaps / wheels
+    }
+    d[i] = px[0] * o.gain; d[i + 1] = px[1] * o.gain; d[i + 2] = px[2] * o.gain; d[i + 3] = 255;
+  }
+  return d;
+}
+const ZQ = [[0.1, 0.2], [0.9, 0.2], [1.0, 0.9], [0.0, 0.9]];   // trapezoid like the perspective grid
+
+section('zone geometry', () => {
+  const b = PL.quadBBox(ZQ);
+  ok(near(b.x, 0) && near(b.w, 1) && near(b.y, 0.2) && near(b.h, 0.7), 'bbox', b);
+  ok(PL.pointInPoly(0.5, 0.5, ZQ) && !PL.pointInPoly(0.02, 0.25, ZQ), 'point in polygon');
+  const m = PL.zoneMask(ZQ), frac = m.reduce((a, v) => a + v, 0) / m.length;
+  ok(frac > 0.85 && frac < 0.97, 'mask covers the trapezoid (~90 % of its box)', frac);
+  ok(PL.cleanQuad([[0, 0], [1, 0], [1, 1]]) === null && PL.cleanQuad([[0, 0], [0, 0], [0, 0], [0, 0]]) === null, 'invalid quads rejected');
+  ok(JSON.stringify(PL.cleanQuad([[-1, 0.5], [2, 0.5], [1, 1], [0, 1]])) === '[[0,0.5],[1,0.5],[1,1],[0,1]]', 'clamped to frame');
+});
+
+section('zone occupancy: vehicle vs road, shadow, lane dash, grey car', () => {
+  const W = 96, H = 60, m = PL.zoneMask(ZQ);
+  const feat = o => PL.zoneFeatures(roadImage(W, H, o), W, H, m);
+  const bg = PL.medianFeatures([feat({ seed: 1 }), feat({ seed: 2 }), feat({ seed: 3 })]);
+  const occ = o => PL.zoneDiff(feat(o), bg, m, 28).occ;
+  const empty = occ({ seed: 9 });
+  ok(empty < 0.02, 'empty road ~0', empty);
+  // expected = share of zone cells whose centre lies on the car
+  const cover = rect => { let a = 0, t = 0; for (let cy = 0; cy < PL.ZONE_GH; cy++) for (let cx = 0; cx < PL.ZONE_GW; cx++) { const c = cy * PL.ZONE_GW + cx; if (!m[c]) continue; t++;
+    const px = (cx + 0.5) / PL.ZONE_GW * W, py = (0.2 + (cy + 0.5) / PL.ZONE_GH * 0.7) * H; if (px >= rect[0] && px < rect[1] && py >= rect[2] && py < rect[3]) a++; } return a / t; };
+  const CAR = [30, 70, 25, 55], cov = cover(CAR);
+  const car = occ({ seed: 10, car: CAR });
+  ok(Math.abs(car - cov) < 0.08, 'red car: occupancy ~ its share of the zone', { car, cov });
+  ok(occ({ seed: 11, gain: 0.55 }) < 0.05, 'bridge shadow (whole zone 45 % darker) ignored', occ({ seed: 11, gain: 0.55 }));
+  ok(occ({ seed: 12, gain: 1.5 }) < 0.05, 'bright patch / tunnel exit ignored');
+  const dash = occ({ seed: 13, dash: [44, 50, 12, 54] });
+  ok(dash < 0.12, 'lane dash through the zone stays small', dash);
+  const greyFlat = occ({ seed: 14, car: [30, 70, 25, 55], carRGB: [100, 102, 106] });
+  const greyCar = occ({ seed: 14, car: [30, 70, 25, 55], carRGB: [100, 102, 106], carEdges: true });
+  ok(greyFlat < 0.1 && greyCar > 0.6 * cov, 'grey car on grey road is found by its texture (edges), a flat grey patch is not', { greyFlat, greyCar });
+  // background adaptation
+  const bg2 = Float32Array.from(bg), f = feat({ seed: 15, gain: 1.2 });
+  const before = PL.zoneDiff(f, bg2, m, 5).occ;
+  for (let i = 0; i < 40; i++) PL.zoneUpdate(bg2, f, m, PL.zoneDiff(f, bg2, m, 28).fg, 0.2, 2, 60);
+  ok(PL.zoneDiff(f, bg2, m, 5).occ < before, 'background adapts to a changed road', { before, after: PL.zoneDiff(f, bg2, m, 5).occ });
+  const bg3 = Float32Array.from(bg), fc = feat({ seed: 16, car: [30, 70, 25, 55] });
+  for (let i = 0; i < 25; i++) PL.zoneUpdate(bg3, fc, m, PL.zoneDiff(fc, bg3, m, 28).fg, 0.2, 2, 60);
+  ok(PL.zoneDiff(fc, bg3, m, 28).occ > 0.8 * cov, 'a car beside us for 5 s is not learned away', PL.zoneDiff(fc, bg3, m, 28).occ);
+});
+
+section('zone: exact entry / exit + frame count', () => {
+  const fps = 60, fr = (a, b, on0, on1) => { const o = []; for (let k = Math.round(a * fps); k <= Math.round(b * fps); k++) { const t = k / fps; o.push({ t, occ: t >= on0 - 1e-9 && t < on1 - 1e-9 ? 0.5 : 0.02 }); } return o; };
+  const inT = PL.refineEdge(fr(10.0, 10.3, 10.15, 99), 0.2, 'entry');
+  const outT = PL.refineEdge(fr(10.3, 10.6, 0, 10.4333), 0.2, 'exit');
+  ok(near(inT, 10.15, 1e-9) && near(outT, 10.4333, 0.009), 'entry / exit frames', { inT, outT });
+  ok(PL.frameCount(inT, outT, fps) === 17, '17 frames in the zone (like the KPI sheet)', PL.frameCount(inT, outT, fps));
+  ok(PL.refineEdge([{ t: 1, occ: 0.5 }, { t: 1.1, occ: 0.6 }], 0.2, 'exit') === null, 'exit not reached -> null');
+  ok(PL.refineEdge([{ t: 1, occ: 0 }], 0.2, 'entry') === null, 'no entry -> null');
+});
+
+section('zone events + lamp events -> On / Off', () => {
+  const ZO = { thrZL: 0.2, thrZR: 0.2, thrA: 0.3, gate: true, mergeGap: 0.3, minDuration: 0.1 };
+  const s = timeline(0, 60, 0.1, t => ({
+    A: inR(t, 50, 55) ? 0 : 1,
+    L: inR(t, 10, 13) ? 0.7 : 0, ZL: inR(t, 10.5, 12.5) || inR(t, 30, 30.3) || inR(t, 51, 53) ? 0.5 : 0.02,
+    R: inR(t, 20, 24) ? 0.7 : inR(t, 40, 42) ? 0.7 : 0, ZR: inR(t, 20.2, 21) || inR(t, 22, 23) || inR(t, 24.8, 25.4) ? 0.5 : 0.02
+  }));
+  const z = PL.extractZoneEvents(s, ZO);
+  ok(z.length === 5, '5 zone events (one suppressed by BSD Active off)', z.map(e => e.side + e.tStart.toFixed(2)));
+  ok(z.every(e => e.firstOn != null && e.prevOff != null && e.nextOff != null), 'sample bounds kept for refinement');
+  const lamp = PL.extractEvents(s, OPTS);
+  const c = PL.combineEvents(lamp, z, 1.0);
+  const desc = c.map(e => `${e.side}${e.kind}@${Math.round(e.tStart)}${e.zone ? 'z' : ''}`).join(' ');
+  ok(desc === 'Lon@10z Ron@20z Loff@30z Ron@40', 'L on+zone, R on (convoy: 3 zone events, 1 within 1 s after), L off, R on without vehicle', desc);
+  ok(c.map(e => e.id).join() === '1,2,3,4', 'ids 1..n');
+  ok(near(c[1].zone.tStart, 21.95, 1e-6), 'R lamp links the zone event it overlaps most', c[1].zone);
+  ok(PL.combineEvents(lamp, z, 0).filter(e => e.kind === 'off').length === 2, 'with no link tolerance the late R zone event becomes Off');
+  ok(PL.combineEvents(lamp, [], 1).every(e => e.kind === 'on' && e.zone === null), 'no zone configured -> lamp events only');
+  const rows = PL.buildRows(c, c.map(() => null), CTX);
+  ok(rows.map(r => r.bsdLight).join() === 'On,On,Off,On', 'BSD Light column On / Off', rows.map(r => r.bsdLight));
+  // labels keep their kind
+  const labs = [{ side: 'L', tStart: 30, tEnd: 30.3, kind: 'off', kpi: 'overtaken' }, { side: 'L', tStart: 10, tEnd: 13, kpi: 'overtaking' }];
+  ok(PL.matchLabels(c, labs).join() === '1,-1,0,-1', 'labels match only events of the same kind (old labels = On)', PL.matchLabels(c, labs));
+});
+
+section('samples with zone fields: pack / unpack', () => {
+  const pk = PL.packSamples([{ t: 1, L: 0.5, R: 0, A: 1, ZL: 0.25, ZR: null }]);
+  const up = PL.unpackSamples(JSON.parse(JSON.stringify(pk)))[0];
+  ok(up.ZL === 0.25 && up.ZR === null && up.A === 1, 'zone fields round-trip', up);
+  const old = PL.unpackSamples({ fields: ['t', 'L', 'R', 'A'], data: [[2, 0.1, 0.2, 0.9]] })[0];
+  ok(old.R === 0.2 && old.ZL === null, 'old 4-field session still loads', old);
+  const nofields = PL.unpackSamples({ data: [[2, 0.1, 0.2, 0.9]] })[0];
+  ok(nofields.A === 0.9, 'missing field list -> default order');
+});
+
+section('zone throughput (perf sanity)', () => {
+  const W = 128, H = 80, m = PL.zoneMask(ZQ), img = roadImage(W, H, { car: [40, 90, 20, 60] }), bg = PL.zoneFeatures(roadImage(W, H, {}), W, H, m);
+  const t0 = process.hrtime.bigint();
+  for (let i = 0; i < 300; i++) { const f = PL.zoneFeatures(img, W, H, m); PL.zoneUpdate(bg, f, m, PL.zoneDiff(f, bg, m, 28).fg, 0.1, 2, 60); }
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6 / 300;
+  ok(ms < 6, 'one zone sample < 6 ms', ms.toFixed(2));
+  console.log(`      (${ms.toFixed(2)} ms per zone sample, 128x80 crop)`);
 });
 
 section('redScore throughput (perf sanity)', () => {

@@ -100,6 +100,13 @@
   .meter[data-side="A"] .bar .fill.on{background:#2fd158;}
   .meter[data-side="A"] .mState.on{background:#1f9d55;}
   .calib[data-side="A"] .lampDot.on{background:#2fd158;box-shadow:0 0 8px #2fd158;}
+  .zcal{border-top:1px solid var(--line);padding:8px 0 4px;}
+  .zcal:first-of-type{border-top:0;}
+  .lampDot.zdot.on,.meter.zm .lampDot.on{background:#4da3ff;box-shadow:0 0 8px #4da3ff;}
+  .meter.zm .bar .fill.on{background:#4da3ff;}
+  .meter.zm .mState.on{background:#2563eb;}
+  .offTag{font:700 9.5px -apple-system,"Segoe UI",sans-serif;color:#fff;background:#111827;border-radius:3px;padding:0 4px;margin-left:5px;vertical-align:1px;}
+  .autoTag{font-size:10.5px;color:#2563eb;font-style:italic;margin-left:4px;}
 
   /* ---- strip chart ---- */
   .chartBox{flex:0 0 130px;position:relative;background:#0f1218;border-top:1px solid var(--shell-line);}
@@ -224,7 +231,7 @@
          box-shadow:0 4px 18px rgba(0,0,0,.3);font-size:13px;z-index:1100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80vw;}
   #toast.show{opacity:1;}
   #toast.warn{background:#a8321f;}
-  body.scanning .controls, body.scanning #overlay, body.scanning .calib, body.scanning #roiList{pointer-events:none;opacity:.55;}
+  body.scanning .controls, body.scanning #overlay, body.scanning .calib, body.scanning .zcal, body.scanning #roiList{pointer-events:none;opacity:.55;}
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -277,11 +284,16 @@
           <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
         <div class="meter" data-side="A"><span class="mLbl" data-i18n="lampA"></span><span class="lampDot"></span>
           <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+        <div class="meter zm" data-zone="L" hidden><span class="mLbl" data-i18n="zoneL"></span><span class="lampDot"></span>
+          <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+        <div class="meter zm" data-zone="R" hidden><span class="mLbl" data-i18n="zoneR"></span><span class="lampDot"></span>
+          <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
       </div>
       <div class="chartBox" id="chartBox">
         <canvas id="chart"></canvas>
         <div class="chartLegend"><span><i style="background:#ff4d4d"></i>L</span><span><i style="background:#ff9f1a"></i>R</span>
-          <span><i style="background:#2fd158"></i><span data-i18n="lampA"></span></span><span data-i18n="chartHint"></span></div>
+          <span><i style="background:#2fd158"></i><span data-i18n="lampA"></span></span>
+          <span><i style="background:#818cf8"></i><span data-i18n="zoneL"></span></span><span><i style="background:#34d399"></i><span data-i18n="zoneR"></span></span><span data-i18n="chartHint"></span></div>
       </div>
     </section>
 
@@ -322,6 +334,40 @@
           <div class="crow"><span data-i18n="threshold"></span>
             <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
         </div>
+      </div>
+
+      <div class="card" id="zoneCard">
+        <h3 data-i18n="zoneTitle"></h3>
+        <p class="hint" data-i18n="zoneHint"></p>
+        <div class="zcal" data-side="L">
+          <div class="calibHead"><span class="lampDot zdot"></span><span data-i18n="zoneL"></span><span class="calScore">—</span></div>
+          <div class="crow">
+            <button class="sbtn" data-zs="empty" data-i18n="zoneEmpty"></button><span class="v emptyVal">—</span>
+            <button class="sbtn pri" data-zs="vehicle" data-i18n="zoneVehicle"></button><span class="v vehVal">—</span>
+            <button class="sbtn" data-zs="reset" data-i18n="clearLbl"></button>
+          </div>
+          <div class="crow"><span data-i18n="threshold"></span>
+            <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
+        </div>
+        <div class="zcal" data-side="R">
+          <div class="calibHead"><span class="lampDot zdot"></span><span data-i18n="zoneR"></span><span class="calScore">—</span></div>
+          <div class="crow">
+            <button class="sbtn" data-zs="empty" data-i18n="zoneEmpty"></button><span class="v emptyVal">—</span>
+            <button class="sbtn pri" data-zs="vehicle" data-i18n="zoneVehicle"></button><span class="v vehVal">—</span>
+            <button class="sbtn" data-zs="reset" data-i18n="clearLbl"></button>
+          </div>
+          <div class="crow"><span data-i18n="threshold"></span>
+            <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
+        </div>
+        <div class="grid2" style="margin-top:6px">
+          <label for="zDThr" data-i18n="zoneSens"></label><input type="number" id="zDThr" min="1" max="255" step="1">
+          <label for="zMerge" data-i18n="mergeGap"></label><input type="number" id="zMerge" min="0" max="10" step="0.05">
+          <label for="zMinDur" data-i18n="minDuration"></label><input type="number" id="zMinDur" min="0" max="10" step="0.05">
+          <label for="zLink" data-i18n="zoneLink"></label><input type="number" id="zLink" min="0" max="10" step="0.1">
+        </div>
+        <label class="chk"><input type="checkbox" id="zShow"><span data-i18n="zoneShow"></span></label>
+        <label class="chk"><input type="checkbox" id="zRefine"><span data-i18n="zoneRefineAuto"></span></label>
+        <div class="crow"><button class="sbtn" id="btnRefine" data-i18n="zoneRefineNow"></button></div>
       </div>
 
       <div class="card" id="scanCard">
@@ -406,7 +452,7 @@
     <aside class="rvList">
       <div class="rvListHead">
         <span class="segL" id="rvFilterSeg">
-          <button data-f="all" data-i18n="rvFilterAll"></button><button data-f="todo" data-i18n="rvFilterTodo"></button><button data-f="L">L</button><button data-f="R">R</button>
+          <button data-f="all" data-i18n="rvFilterAll"></button><button data-f="todo" data-i18n="rvFilterTodo"></button><button data-f="L">L</button><button data-f="R">R</button><button data-f="off" data-i18n="filterOff"></button>
         </span>
         <div id="rvProgress" class="rvProgress"></div>
       </div>
@@ -741,15 +787,19 @@ const PureLogic = (function () {
   // Compact form for the session file: rounded numbers in arrays.
   function packSamples(samples) {
     const r3 = x => (Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
-    return { fields: ['t', 'L', 'R', 'A'], data: samples.map(s => [r3(s.t), r3(s.L), r3(s.R), r3(s.A)]) };
+    const fields = ['t', 'L', 'R', 'A', 'ZL', 'ZR'];
+    return { fields, data: samples.map(s => fields.map(f => r3(s[f]))) };
   }
   function unpackSamples(pk) {
     if (!pk || !Array.isArray(pk.data)) return [];
     const out = [];
+    const fields = Array.isArray(pk.fields) ? pk.fields : ['t', 'L', 'R', 'A'];
+    const num = x => (Number.isFinite(x) ? x : null);
     for (const row of pk.data) {
       if (!Array.isArray(row) || !Number.isFinite(row[0])) continue;
-      const num = x => (Number.isFinite(x) ? x : null);
-      out.push({ t: row[0], L: num(row[1]), R: num(row[2]), A: num(row[3]) });
+      const s = { t: row[0], L: null, R: null, A: null, ZL: null, ZR: null };
+      fields.forEach((f, i) => { if (i > 0 && f in s) s[f] = num(row[i]); });
+      out.push(s);
     }
     out.sort((a, b) => a.t - b.t);
     return out;
@@ -772,7 +822,8 @@ const PureLogic = (function () {
       const ti = samples[i].t, tj = samples[j].t;
       const tStart = i > 0 ? Math.max(ti - maxHalf, (samples[i - 1].t + ti) / 2) : ti;
       const tEnd = j < n - 1 ? Math.min(tj + maxHalf, (tj + samples[j + 1].t) / 2) : tj;
-      segs.push({ tStart, tEnd });
+      segs.push({ tStart, tEnd, firstOn: ti, lastOn: tj,
+        prevOff: i > 0 ? samples[i - 1].t : null, nextOff: j < n - 1 ? samples[j + 1].t : null });
       i = j + 1;
     }
     return segs;
@@ -782,8 +833,9 @@ const PureLogic = (function () {
     const out = [];
     for (const s of segs) {
       const last = out[out.length - 1];
-      if (last && s.tStart - last.tEnd < mergeGap - 1e-9) last.tEnd = Math.max(last.tEnd, s.tEnd);
-      else out.push({ tStart: s.tStart, tEnd: s.tEnd });
+      if (last && s.tStart - last.tEnd < mergeGap - 1e-9) {
+        if (s.tEnd > last.tEnd) { last.tEnd = s.tEnd; last.lastOn = s.lastOn; last.nextOff = s.nextOff; }
+      } else out.push(Object.assign({}, s));
     }
     return out;
   }
@@ -810,6 +862,151 @@ const PureLogic = (function () {
     const done = t - from;
     if (!(done > 0) || !(elapsedSec > 0)) return null;
     return Math.max(0, (to - t) * elapsedSec / done);
+  }
+
+  // ---- Detection zone: vehicle-in-zone from a per-cell road model ----
+  // The camera is fixed to the car, so an empty zone always shows the same road patch.
+  // Each grid cell inside the 4-corner zone keeps an "empty road" feature (normalised colour +
+  // texture); a cell is occupied when the current frame differs from it by more than dThr.
+  const ZONE_GW = 32, ZONE_GH = 20;
+  function quadBBox(q) {
+    const xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+    const x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+  function pointInPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  // Valid zone: 4 finite points inside [0,1] with a non-empty bounding box.
+  function cleanQuad(q) {
+    if (!Array.isArray(q) || q.length !== 4) return null;
+    const out = q.map(p => (Array.isArray(p) ? [clamp(+p[0], 0, 1), clamp(+p[1], 0, 1)] : null));
+    if (out.some(p => !p || !p.every(Number.isFinite))) return null;
+    const b = quadBBox(out);
+    return b.w > 0 && b.h > 0 ? out : null;
+  }
+  // Cells (over the bounding box) whose centre is inside the zone.
+  function zoneMask(quad, gw, gh) {
+    gw = gw || ZONE_GW; gh = gh || ZONE_GH;
+    const b = quadBBox(quad), m = new Uint8Array(gw * gh);
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++)
+      m[cy * gw + cx] = pointInPoly(b.x + (cx + 0.5) / gw * b.w, b.y + (cy + 0.5) / gh * b.h, quad) ? 1 : 0;
+    return m;
+  }
+  // RGBA (w x h, covering the zone's bounding box) -> 4 features per cell: R, G, B, texture.
+  // Brightness is normalised to the zone's median luma so shadows / tunnels do not count as vehicles.
+  function zoneFeatures(data, w, h, mask, gw, gh) {
+    gw = gw || ZONE_GW; gh = gh || ZONE_GH;
+    const n = gw * gh, acc = new Float64Array(n * 4), cnt = new Float64Array(n);
+    const colCell = new Int32Array(w);
+    for (let x = 0; x < w; x++) colCell[x] = Math.min(gw - 1, Math.floor(x * gw / w));
+    const L = new Float32Array(w * h);
+    for (let j = 0, i = 0; j < L.length; j++, i += 4) L[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    for (let y = 0; y < h; y++) {
+      const rowCell = Math.min(gh - 1, Math.floor(y * gh / h)) * gw, row = y * w, lastRow = y + 1 >= h;
+      for (let x = 0; x < w; x++) {
+        const c = rowCell + colCell[x];
+        if (!mask[c]) continue;
+        const j = row + x, i = j * 4, l0 = L[j];
+        const gx = x + 1 < w ? Math.abs(L[j + 1] - l0) : 0, gy = lastRow ? 0 : Math.abs(L[j + w] - l0);
+        const k = c * 4;
+        acc[k] += data[i]; acc[k + 1] += data[i + 1]; acc[k + 2] += data[i + 2]; acc[k + 3] += gx + gy;
+        cnt[c]++;
+      }
+    }
+    const f = new Float32Array(n * 4), lumas = [];
+    for (let c = 0; c < n; c++) {
+      if (!mask[c] || !cnt[c]) continue;
+      for (let k = 0; k < 4; k++) f[c * 4 + k] = acc[c * 4 + k] / cnt[c];
+      lumas.push(0.299 * f[c * 4] + 0.587 * f[c * 4 + 1] + 0.114 * f[c * 4 + 2]);
+    }
+    if (lumas.length) {
+      lumas.sort((a, b) => a - b);
+      const k = clamp(110 / Math.max(1, lumas[lumas.length >> 1]), 0.5, 3);
+      for (let c = 0; c < n; c++) if (mask[c]) for (let j = 0; j < 4; j++) f[c * 4 + j] *= k;
+    }
+    return f;
+  }
+  // Occupancy = share of zone cells that differ from the background by more than dThr.
+  function zoneDiff(f, bg, mask, dThr) {
+    const fg = new Uint8Array(mask.length);
+    let on = 0, total = 0;
+    for (let c = 0; c < mask.length; c++) {
+      if (!mask[c]) continue;
+      total++;
+      const i = c * 4;
+      const d = (Math.abs(f[i] - bg[i]) + Math.abs(f[i + 1] - bg[i + 1]) + Math.abs(f[i + 2] - bg[i + 2])) / 3 + Math.abs(f[i + 3] - bg[i + 3]);
+      if (d > dThr) { fg[c] = 1; on++; }
+    }
+    return { occ: total ? on / total : 0, fg };
+  }
+  // Time-based background update: road cells adapt with time constant tauBg (lighting changes),
+  // occupied cells only with the slow tauFg (so a long side-by-side vehicle is not learned away).
+  function zoneUpdate(bg, f, mask, fg, dt, tauBg, tauFg) {
+    const aB = 1 - Math.exp(-Math.max(0, dt) / tauBg), aF = 1 - Math.exp(-Math.max(0, dt) / tauFg);
+    for (let c = 0; c < mask.length; c++) {
+      if (!mask[c]) continue;
+      const a = fg[c] ? aF : aB;
+      for (let k = c * 4; k < c * 4 + 4; k++) bg[k] += a * (f[k] - bg[k]);
+    }
+    return bg;
+  }
+  function medianFeatures(list) {
+    const n = list[0].length, out = new Float32Array(n), tmp = new Array(list.length);
+    for (let i = 0; i < n; i++) { for (let j = 0; j < list.length; j++) tmp[j] = list[j][i]; tmp.sort((a, b) => a - b); out[i] = tmp[tmp.length >> 1]; }
+    return out;
+  }
+  // Exact edge from per-frame occupancy [{t, occ}] (ascending t):
+  // 'entry' = first frame occupied after an unoccupied one; 'exit' = first unoccupied frame after the last occupied one.
+  function refineEdge(frames, thr, kind) {
+    if (!frames.length) return null;
+    if (kind === 'entry') {
+      for (let i = 0; i < frames.length; i++) if (frames[i].occ >= thr && (i === 0 || frames[i - 1].occ < thr)) return frames[i].t;
+      return null;
+    }
+    for (let i = frames.length - 1; i >= 0; i--) if (frames[i].occ >= thr) return i + 1 < frames.length ? frames[i + 1].t : null;
+    return null;
+  }
+  // Zone events per side from samples ZL / ZR (gated by BSD Active), with sample bounds kept.
+  function extractZoneEvents(samples, opts) {
+    const o = Object.assign({ gate: true, mergeGap: 0.3, minDuration: 0.1, maxHalf: 0.5 }, opts);
+    const ev = [];
+    for (const side of ['L', 'R']) {
+      const key = 'Z' + side;
+      if (!samples.some(s => s[key] != null)) continue;
+      const on = binarize(samples, key, side === 'L' ? o.thrZL : o.thrZR, o.gate ? 'A' : null, o.thrA);
+      for (const s of dropShort(mergeSegments(runsToSegments(samples, on, o.maxHalf), o.mergeGap), o.minDuration))
+        ev.push(Object.assign({ side, duration: s.tEnd - s.tStart }, s));
+    }
+    return ev.sort((a, b) => a.tStart - b.tStart);
+  }
+  // Join lamp events and zone events per side:
+  //  lamp event                      -> kind 'on', linked to the best-overlapping zone event (or null)
+  //  zone event touching no lamp     -> kind 'off' (vehicle in the zone, lamp never came on)
+  // "Touching" allows a gap of up to linkTol seconds (the real BSD zone differs from the drawn one).
+  function combineEvents(lampEvs, zoneEvs, linkTol) {
+    const tol = linkTol == null ? 1 : linkTol, out = [], touched = new Set();
+    const gap = (a, b) => Math.max(a.tStart, b.tStart) - Math.min(a.tEnd, b.tEnd);   // < 0 = overlap
+    for (const e of lampEvs) {
+      let best = -1, bestGap = Infinity;
+      zoneEvs.forEach((z, zi) => {
+        if (z.side !== e.side) return;
+        const g = gap(e, z);
+        if (g <= tol) { touched.add(zi); if (g < bestGap) { bestGap = g; best = zi; } }
+      });
+      out.push({ kind: 'on', side: e.side, tStart: e.tStart, tEnd: e.tEnd, duration: e.tEnd - e.tStart, zone: best >= 0 ? zoneEvs[best] : null });
+    }
+    zoneEvs.forEach((z, zi) => {
+      if (!touched.has(zi)) out.push({ kind: 'off', side: z.side, tStart: z.tStart, tEnd: z.tEnd, duration: z.tEnd - z.tStart, zone: z });
+    });
+    out.sort((a, b) => a.tStart - b.tStart || (a.side < b.side ? -1 : 1));
+    out.forEach((e, i) => { e.id = i + 1; });
+    return out;
   }
 
   // ---- Review: KPI, clock mapping, frame count, label matching ----
@@ -868,7 +1065,7 @@ const PureLogic = (function () {
     tol = tol == null ? 1 : tol;
     const pairs = [];
     events.forEach((e, ei) => labels.forEach((l, li) => {
-      if (!l || l.side !== e.side) return;
+      if (!l || l.side !== e.side || (l.kind || 'on') !== (e.kind || 'on')) return;
       const ov = Math.min(e.tEnd, l.tEnd) - Math.max(e.tStart, l.tStart);
       const d = Math.abs(e.tStart - l.tStart);
       if (ov > 0) pairs.push([ov + 1, ei, li]);
@@ -895,7 +1092,7 @@ const PureLogic = (function () {
       const ck = videoToClock(e.tStart, ctx.anchor);
       return {
         id: e.id, videoName: ctx.videoName, timeline: fmtHMS(e.tStart), kpi: l.kpi || null,
-        kpiText: l.kpi ? KPI_SHEET[l.kpi] : '', side: e.side, bsdLight: 'On',
+        kpiText: l.kpi ? KPI_SHEET[l.kpi] : '', side: e.side, bsdLight: e.kind === 'off' ? 'Off' : 'On',
         fps: Number.isFinite(l.fps) ? l.fps : '', frameCount: fc == null ? '' : fc,
         tStart: e.tStart, tEnd: e.tEnd, duration: e.tEnd - e.tStart,
         clock: ck == null ? '' : fmtClock(ck), markIn: l.markIn, markOut: l.markOut, note: l.note || ''
@@ -1199,7 +1396,9 @@ const PureLogic = (function () {
     return { parts, size, startSec: sec(base), endSec: sec(lastTc), clusters: out.length };
   }
 
-  return { MKV, ebmlHeader, encSize, cachedReader, mkvScanFile, mkvClipPlan,
+  return { ZONE_GW, ZONE_GH, quadBBox, pointInPoly, cleanQuad, zoneMask, zoneFeatures, zoneDiff, zoneUpdate, medianFeatures,
+           refineEdge, extractZoneEvents, combineEvents,
+           MKV, ebmlHeader, encSize, cachedReader, mkvScanFile, mkvClipPlan,
            KPI_SHEET, SHEET_COLS, EXTRA_COLS, buildRows, rowsToCsv, rowsToTsv, countSummary,
            grayFromRGBA, meanAbsDiff, suggestDirection,
            KPI, fmtHMS, parseClock, fmtClock, videoToClock, frameCount, eventWindow, stripTimes, matchLabels,
@@ -1286,7 +1485,7 @@ const I18N = {
     kpiSub_overtaking: 'we pass them', kpiSub_overtaken: 'they pass us', kpiSub_infrastructure: 'no vehicle / false alarm', kpiSub_unclear: 'decide later',
     rvKpiTitle: 'KPI type', rvAutoAdvance: 'Go to the next event after 1–4',
     rvMeasTitle: 'Frame count', rvMarkIn: 'Mark In (I)', rvMarkOut: 'Mark Out (O)', clearLbl: 'Clear',
-    rvMarkHint: 'Step to the frame where the vehicle enters the zone and press I, then where it leaves and press O.',
+    rvMarkHint: 'Filled automatically from the detection zone. To correct it: step to the first frame with the vehicle in the zone and press I, then to the first frame after it has left and press O. Clear returns to the automatic value.',
     rvFramesDur: '{s} s at {fps} fps (recording)', rvMarkBad: 'Mark Out is before Mark In',
     rvFpsTitle: 'Camera FPS', rvFpsHint: 'Capture of {roi} at the event start. Read the camera fps and type it; it is prefilled from the previous {side} event.',
     rvFpsCapture: 'Capture current frame', rvFpsNoRoi: 'Draw the {roi} ROI over the {side} camera window title (Edit view) to capture the fps here.',
@@ -1323,6 +1522,17 @@ const I18N = {
     clipSave: 'Save clip (.mkv)', clipWorking: 'Preparing clip…', clipSaved: 'Clip saved: {from} → {to} ({size}).', clipFailed: 'Clip failed: {why}',
     clipNotMkv: 'Only MKV / WebM files can be clipped in the browser. For this file, use ffmpeg:',
     rvClip: 'Save clip', rvClipTip: 'Save this event window as an .mkv clip',
+    zoneL: 'Zone L', zoneR: 'Zone R', roi_RL_ZONE: 'RL detection zone (4 corners)', roi_RR_ZONE: 'RR detection zone (4 corners)',
+    zoneTitle: 'Detection zone (vehicle with or without lamp)',
+    zoneHint: 'Draw RL_ZONE / RR_ZONE along the BSD zone in each camera: drag a box, then drag its 4 corners onto the grid lines. On frames with an empty zone press Sample EMPTY (2–3 different frames), then on a frame with a vehicle in the zone press Sample VEHICLE. Red squares on the video show what is detected. Vehicles found here while BSD Active is on but no lamp lights become "BSD Light Off" events. For short passes scan with Play 2× or Seek 10 samples/s.',
+    zoneEmpty: 'Sample EMPTY', zoneVehicle: 'Sample VEHICLE', zoneSens: 'Cell difference (lower = more sensitive)', zoneLink: 'Same vehicle as lamp within (s)',
+    zoneShow: 'Show detected cells on the video', zoneRefineAuto: 'Exact frame count after each scan', zoneRefineNow: 'Refine frame counts now',
+    zoneNeedEmpty: 'press Sample EMPTY first', zoneNoRoi: 'draw {roi}', zoneRefining: 'Exact frame count: event {i} / {n}…',
+    zoneRefined: 'Frame counts refined for {n} events ({sec} s).', zoneChanged: 'Zone changed: press Sample EMPTY again.', zoneNoEvents: 'No detection-zone events yet: scan first.',
+    filterOff: 'Off', bsdOffTag: 'BSD Light Off',
+    rvSugNoVehicle: 'Infrastructure?: the lamp was on but no vehicle was detected in the detection zone.',
+    rvAuto: 'auto', rvExact: 'auto, exact frame', rvApprox: 'estimate: press "Refine frame counts now" in Edit',
+    rpBsdOn: 'BSD Light On', rpBsdOff: 'BSD Light Off (missed)',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -1394,7 +1604,7 @@ const I18N = {
     kpiSub_overtaking: '本车超过目标', kpiSub_overtaken: '目标超过本车', kpiSub_infrastructure: '无车辆 / 误报', kpiSub_unclear: '稍后再定',
     rvKpiTitle: 'KPI 类型', rvAutoAdvance: '按 1–4 后跳到下一个事件',
     rvMeasTitle: '帧数', rvMarkIn: '标记进入 (I)', rvMarkOut: '标记离开 (O)', clearLbl: '清除',
-    rvMarkHint: '逐帧找到车辆进入区域的帧按 I，离开的帧按 O。',
+    rvMarkHint: '由检测区域自动填写。如需修正：逐帧找到车辆进入区域的第一帧按 I，再找到车辆离开后的第一帧按 O。“清除”可恢复自动值。',
     rvFramesDur: '{s} 秒，录屏 {fps} fps', rvMarkBad: '离开标记早于进入标记',
     rvFpsTitle: '摄像头帧率', rvFpsHint: '事件开始时 {roi} 的截取。读出摄像头帧率并输入；默认沿用上一个{side}侧事件的值。',
     rvFpsCapture: '截取当前帧', rvFpsNoRoi: '请在编辑视图中于{side}侧摄像头窗口标题处框选 {roi}，即可在此截取帧率。',
@@ -1431,6 +1641,17 @@ const I18N = {
     clipSave: '保存片段 (.mkv)', clipWorking: '正在准备片段…', clipSaved: '片段已保存：{from} → {to}（{size}）。', clipFailed: '保存片段失败：{why}',
     clipNotMkv: '浏览器中只能截取 MKV / WebM 文件。此文件请使用 ffmpeg：',
     rvClip: '保存片段', rvClipTip: '将此事件窗口保存为 .mkv 片段',
+    zoneL: '左区域', zoneR: '右区域', roi_RL_ZONE: 'RL 检测区域（4 角）', roi_RR_ZONE: 'RR 检测区域（4 角）',
+    zoneTitle: '检测区域（有无报警灯的车辆）',
+    zoneHint: '在每个摄像头中沿 BSD 区域绘制 RL_ZONE / RR_ZONE：先拖出一个框，再把 4 个角拖到网格线上。在区域内无车的帧上按“采样 空”（取 2–3 个不同帧），再在区域内有车的帧上按“采样 有车”。视频上的红色方块显示检测结果。BSD 激活时区域内有车但报警灯未亮，即记为“BSD Light Off”事件。车辆快速通过时请用播放 2 倍速或跳帧 10 采样/秒扫描。',
+    zoneEmpty: '采样 空', zoneVehicle: '采样 有车', zoneSens: '单元差异（越小越灵敏）', zoneLink: '与报警灯视为同一车辆的间隔（秒）',
+    zoneShow: '在视频上显示检测到的单元', zoneRefineAuto: '每次扫描后精确计算帧数', zoneRefineNow: '立即精确计算帧数',
+    zoneNeedEmpty: '请先按“采样 空”', zoneNoRoi: '请框选 {roi}', zoneRefining: '精确帧数：事件 {i} / {n}…',
+    zoneRefined: '已精确计算 {n} 个事件的帧数（{sec} 秒）。', zoneChanged: '区域已更改：请重新按“采样 空”。', zoneNoEvents: '尚无检测区域事件：请先扫描。',
+    filterOff: '未亮', bsdOffTag: 'BSD Light Off',
+    rvSugNoVehicle: 'Infrastructure？：报警灯亮了，但检测区域内未检测到车辆。',
+    rvAuto: '自动', rvExact: '自动，精确到帧', rvApprox: '估计值：请在编辑视图按“立即精确计算帧数”',
+    rpBsdOn: 'BSD Light On（亮）', rpBsdOff: 'BSD Light Off（漏报）',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -1502,7 +1723,7 @@ const I18N = {
     kpiSub_overtaking: '本車超過目標', kpiSub_overtaken: '目標超過本車', kpiSub_infrastructure: '無車輛 / 誤報', kpiSub_unclear: '稍後再定',
     rvKpiTitle: 'KPI 類型', rvAutoAdvance: '按 1–4 後跳到下一個事件',
     rvMeasTitle: '影格數', rvMarkIn: '標記進入 (I)', rvMarkOut: '標記離開 (O)', clearLbl: '清除',
-    rvMarkHint: '逐格找到車輛進入區域的影格按 I，離開的影格按 O。',
+    rvMarkHint: '由偵測區域自動填寫。如需修正：逐格找到車輛進入區域的第一格按 I，再找到車輛離開後的第一格按 O。「清除」可恢復自動值。',
     rvFramesDur: '{s} 秒，錄影 {fps} fps', rvMarkBad: '離開標記早於進入標記',
     rvFpsTitle: '攝影機影格率', rvFpsHint: '事件開始時 {roi} 的擷取。讀出攝影機影格率並輸入；預設沿用上一個{side}側事件的值。',
     rvFpsCapture: '擷取目前影格', rvFpsNoRoi: '請在編輯檢視中於{side}側攝影機視窗標題處框選 {roi}，即可在此擷取影格率。',
@@ -1539,6 +1760,17 @@ const I18N = {
     clipSave: '儲存片段 (.mkv)', clipWorking: '正在準備片段…', clipSaved: '片段已儲存：{from} → {to}（{size}）。', clipFailed: '儲存片段失敗：{why}',
     clipNotMkv: '瀏覽器中只能擷取 MKV / WebM 檔案。此檔案請使用 ffmpeg：',
     rvClip: '儲存片段', rvClipTip: '將此事件視窗儲存為 .mkv 片段',
+    zoneL: '左區域', zoneR: '右區域', roi_RL_ZONE: 'RL 偵測區域（4 角）', roi_RR_ZONE: 'RR 偵測區域（4 角）',
+    zoneTitle: '偵測區域（有無警示燈的車輛）',
+    zoneHint: '在每個攝影機中沿 BSD 區域繪製 RL_ZONE / RR_ZONE：先拖出一個框，再把 4 個角拖到網格線上。在區域內無車的影格上按「取樣 空」（取 2–3 個不同影格），再在區域內有車的影格上按「取樣 有車」。影片上的紅色方塊顯示偵測結果。BSD 啟用時區域內有車但警示燈未亮，即記為「BSD Light Off」事件。車輛快速通過時請用播放 2 倍速或跳格 10 取樣/秒掃描。',
+    zoneEmpty: '取樣 空', zoneVehicle: '取樣 有車', zoneSens: '單元差異（越小越靈敏）', zoneLink: '與警示燈視為同一車輛的間隔（秒）',
+    zoneShow: '在影片上顯示偵測到的單元', zoneRefineAuto: '每次掃描後精確計算影格數', zoneRefineNow: '立即精確計算影格數',
+    zoneNeedEmpty: '請先按「取樣 空」', zoneNoRoi: '請框選 {roi}', zoneRefining: '精確影格數：事件 {i} / {n}…',
+    zoneRefined: '已精確計算 {n} 個事件的影格數（{sec} 秒）。', zoneChanged: '區域已變更：請重新按「取樣 空」。', zoneNoEvents: '尚無偵測區域事件：請先掃描。',
+    filterOff: '未亮', bsdOffTag: 'BSD Light Off',
+    rvSugNoVehicle: 'Infrastructure？：警示燈亮了，但偵測區域內未偵測到車輛。',
+    rvAuto: '自動', rvExact: '自動，精確到格', rvApprox: '估計值：請在編輯檢視按「立即精確計算影格數」',
+    rpBsdOn: 'BSD Light On（亮）', rpBsdOff: 'BSD Light Off（漏報）',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -1561,8 +1793,15 @@ const ROI_DEFS = [
   { key: 'RL_DIST',    req: false, color: '#22d3ee' },
   { key: 'RR_DIST',    req: false, color: '#a3e635' },
   { key: 'RL_FPS',     req: false, color: '#f472b6' },
-  { key: 'RR_FPS',     req: false, color: '#fda4af' }
+  { key: 'RR_FPS',     req: false, color: '#fda4af' },
+  { key: 'RL_ZONE',    req: false, color: '#818cf8', quad: true },
+  { key: 'RR_ZONE',    req: false, color: '#34d399', quad: true }
 ];
+const ZONE_ROI = { L: 'RL_ZONE', R: 'RR_ZONE' };
+const isQuadKey = k => !!(ROI_DEFS.find(d => d.key === k) || {}).quad;
+// 4-corner ROI: {x, y, w, h} is the bounding box, quad the corners (clockwise from top-left).
+function quadRoi(q) { return Object.assign(PL.quadBBox(q), { quad: q }); }
+function rectToQuad(r) { return [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]; }
 const LAMP_ROI = { L: 'LEFT_LAMP', R: 'RIGHT_LAMP', A: 'BSD_ACTIVE' };
 const LAMP_SIDES = ['L', 'R', 'A'];
 
@@ -1576,6 +1815,8 @@ function defaultState() {
     scan: { mode: 'play', seekFps: 5, playRate: 4, gate: true, mergeGap: 0.5, minDuration: 0.3 },
     review: { pre: 4, post: 2, speed: 1, autoAdvance: true, suggest: true, filter: 'all', lastFps: { L: null, R: null } },
     report: { layout: 'compact', header: false, nameFirst: false, onlyLabeled: false, extras: true },
+    zone: { dThr: 28, tauBg: 2, show: true, refine: true, mergeGap: 0.3, minDuration: 0.1, linkTol: 1,
+            L: { thr: 0.2, on: null, off: null, bg0: null, n: 0 }, R: { thr: 0.2, on: null, off: null, bg0: null, n: 0 } },
     videos: {}    // per video ("name|size"): { anchor: {video, clock} | null, labels: [...] }
   };
 }
@@ -1589,7 +1830,13 @@ function sanitizeSettings(src, base) {
   if (Number.isFinite(src.fps) && src.fps > 0 && src.fps <= 240) s.fps = src.fps;
   if (src.rois && typeof src.rois === 'object') {
     s.rois = {};
-    for (const d of ROI_DEFS) { const r = PL.clampNormRect(src.rois[d.key]); if (r) s.rois[d.key] = r; }
+    for (const d of ROI_DEFS) {
+      const v = src.rois[d.key];
+      if (d.quad) {
+        const q = v && (PL.cleanQuad(v.quad) || (PL.clampNormRect(v) && rectToQuad(PL.clampNormRect(v))));
+        if (q) s.rois[d.key] = quadRoi(q);
+      } else { const r = PL.clampNormRect(v); if (r) s.rois[d.key] = r; }
+    }
   }
   if (src.red && typeof src.red === 'object') {
     for (const k of Object.keys(PL.DEFAULT_RED)) if (Number.isFinite(src.red[k])) s.red[k] = src.red[k];
@@ -1613,8 +1860,23 @@ function sanitizeSettings(src, base) {
     if ([0.25, 0.5, 1, 2, 4].includes(r.speed)) d.speed = r.speed;
     if (typeof r.autoAdvance === 'boolean') d.autoAdvance = r.autoAdvance;
     if (typeof r.suggest === 'boolean') d.suggest = r.suggest;
-    if (['all', 'todo', 'L', 'R'].includes(r.filter)) d.filter = r.filter;
+    if (['all', 'todo', 'L', 'R', 'off'].includes(r.filter)) d.filter = r.filter;
     if (r.lastFps) for (const k of ['L', 'R']) d.lastFps[k] = Number.isFinite(r.lastFps[k]) ? r.lastFps[k] : null;
+  }
+  if (src.zone && typeof src.zone === 'object') {
+    const z = src.zone, d = s.zone, num = (x, lo, hi) => Number.isFinite(x) && x >= lo && x <= hi;
+    if (num(z.dThr, 1, 255)) d.dThr = z.dThr;
+    if (num(z.tauBg, 0.1, 60)) d.tauBg = z.tauBg;
+    for (const k of ['show', 'refine']) if (typeof z[k] === 'boolean') d[k] = z[k];
+    if (num(z.mergeGap, 0, 10)) d.mergeGap = z.mergeGap;
+    if (num(z.minDuration, 0, 10)) d.minDuration = z.minDuration;
+    if (num(z.linkTol, 0, 10)) d.linkTol = z.linkTol;
+    for (const side of ['L', 'R']) {
+      const a = z[side], b = d[side]; if (!a) continue;
+      if (num(a.thr, 0, 1)) b.thr = a.thr;
+      b.on = num(a.on, 0, 1) ? a.on : null; b.off = num(a.off, 0, 1) ? a.off : null;
+      if (Array.isArray(a.bg0) && a.bg0.length === PL.ZONE_GW * PL.ZONE_GH * 4 && a.bg0.every(Number.isFinite)) { b.bg0 = a.bg0; b.n = Number.isFinite(a.n) ? a.n : 1; }
+    }
   }
   if (src.report && typeof src.report === 'object') {
     const r = src.report, d = s.report;
@@ -1642,7 +1904,7 @@ function sanitizeReview(v) {
   if (v.anchor && Number.isFinite(v.anchor.video) && Number.isFinite(v.anchor.clock)) out.anchor = { video: v.anchor.video, clock: v.anchor.clock };
   if (Array.isArray(v.labels)) for (const l of v.labels) {
     if (!l || (l.side !== 'L' && l.side !== 'R') || !Number.isFinite(l.tStart) || !Number.isFinite(l.tEnd)) continue;
-    out.labels.push({ side: l.side, tStart: l.tStart, tEnd: l.tEnd, kpi: PL.KPI.includes(l.kpi) ? l.kpi : null,
+    out.labels.push({ side: l.side, kind: l.kind === 'off' ? 'off' : 'on', tStart: l.tStart, tEnd: l.tEnd, kpi: PL.KPI.includes(l.kpi) ? l.kpi : null,
       note: typeof l.note === 'string' ? l.note.slice(0, 2000) : '', fps: num(l.fps), markIn: num(l.markIn), markOut: num(l.markOut) });
   }
   return out;
@@ -1686,7 +1948,7 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
   document.querySelectorAll('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
   renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps(); renderEvents(); renderScanInfo(); drawChart();
-  renderKpiButtons(); renderReviewList(); renderReviewPanel(); layoutCrop(); rvTick();
+  renderKpiButtons(); renderReviewList(); renderReviewPanel(); layoutCrop(); rvTick(); renderZone();
   document.querySelectorAll('#rvStrip .th').forEach(th => { th.dataset.loading = t('rvLoading'); });
   renderReport();
 }
@@ -1747,7 +2009,7 @@ function openVideoFile(f) {
   if (V.url) URL.revokeObjectURL(V.url);
   V.file = f; V.url = URL.createObjectURL(f); V.meta = null; V.ready = false; V.pendingSeek = null;
   V.scores = { L: null, R: null, A: null };
-  V.samples = []; V.events = []; V.selEvent = null; V.dirty = false;
+  V.samples = []; V.events = []; V.selEvent = null; V.dirty = false; V.refined = []; V.zoneEvents = [];
   $('stage').hidden = true; $('dropHint').hidden = false;
   updateStatus(t('statusLoading', { name: f.name }));
   vid.src = V.url;          // streamed by the browser from disk; never read into JS memory
@@ -1878,14 +2140,15 @@ async function detectFps() {
    LIVE LAMP SCORING + ROI THUMBNAILS
    ===================================================================== */
 // Draw only the ROI region of the current frame into a small canvas and return its pixels.
-function grabRoi(roi, maxDim) {
-  const W = vid.videoWidth, H = vid.videoHeight;
+function grabRoi(roi, maxDim, el) {
+  el = el || vid;
+  const W = el.videoWidth, H = el.videoHeight;
   if (!W || !H || !roi) return null;
   const p = PL.normToPx(roi, W, H);
   const k = Math.min(1, maxDim / Math.max(p.sw, p.sh));
   const dw = Math.max(1, Math.round(p.sw * k)), dh = Math.max(1, Math.round(p.sh * k));
   if (sampleCanvas.width !== dw || sampleCanvas.height !== dh) { sampleCanvas.width = dw; sampleCanvas.height = dh; }
-  sctx.drawImage(vid, p.sx, p.sy, p.sw, p.sh, 0, 0, dw, dh);
+  sctx.drawImage(el, p.sx, p.sy, p.sw, p.sh, 0, 0, dw, dh);
   return sctx.getImageData(0, 0, dw, dh);
 }
 
@@ -1905,7 +2168,9 @@ function refreshLive() {
   if (!V.ready || vid.readyState < 2) return;
   if (SCAN.running) { scheduleChart(); return; }   // the scan updates meters itself
   for (const side of LAMP_SIDES) V.scores[side] = scoreLamp(side);
-  renderLamps(); updateThumbs(); updateTimeUI(); scheduleChart();
+  measureZonesLive();
+  renderLamps(); renderZone(); updateThumbs(); updateTimeUI(); scheduleChart();
+  if (zoneSides().length && S.zone.show) drawOverlay();
 }
 
 function renderLamps() {
@@ -1988,7 +2253,7 @@ function renderRoiList() {
       const act = e.target.dataset && e.target.dataset.act;
       selRoi = d.key;
       if (act === 'draw') { armed = true; if (V.ready) { vid.pause(); toast(t('msgArmed', { roi: d.key })); } }
-      else if (act === 'clear') { delete S.rois[d.key]; armed = false; scheduleSave(); scheduleRefresh(); }
+      else if (act === 'clear') { delete S.rois[d.key]; if (d.quad) zoneCache[d.key] = null; armed = false; scheduleSave(); scheduleRefresh(); }
       else armed = false;
       renderRoiList(); drawOverlay();
     });
@@ -2008,9 +2273,18 @@ function drawOverlay() {
   for (const k of order) {
     const r = S.rois[k]; if (!r) continue;
     const x = r.x * W, y = r.y * H, w = r.w * W, h = r.h * H, sel = k === selRoi, col = roiColor(k);
-    if (sel) { octx.fillStyle = col + '22'; octx.fillRect(x, y, w, h); }
     octx.lineWidth = (sel ? 2.5 : 1.5) * dpr; octx.strokeStyle = col;
-    octx.setLineDash(sel ? [] : [5 * dpr, 3 * dpr]); octx.strokeRect(x, y, w, h); octx.setLineDash([]);
+    octx.setLineDash(sel ? [] : [5 * dpr, 3 * dpr]);
+    if (r.quad) {
+      drawZoneCells(k, r, W, H);
+      octx.beginPath(); r.quad.forEach(([qx, qy], i) => (i ? octx.lineTo(qx * W, qy * H) : octx.moveTo(qx * W, qy * H))); octx.closePath();
+      if (sel) { octx.fillStyle = col + '22'; octx.fill(); }
+      octx.stroke();
+    } else {
+      if (sel) { octx.fillStyle = col + '22'; octx.fillRect(x, y, w, h); }
+      octx.strokeRect(x, y, w, h);
+    }
+    octx.setLineDash([]);
     const tw = octx.measureText(k).width + 6 * dpr, th = 14 * dpr;
     const ly = y - th < 0 ? y + h + th : y;
     octx.fillStyle = 'rgba(0,0,0,.7)'; octx.fillRect(x, ly - th, tw, th);
@@ -2018,11 +2292,20 @@ function drawOverlay() {
     if (sel) {
       const hs = 7 * dpr;
       octx.fillStyle = '#fff';
-      for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
+      for (const [cx, cy] of (r.quad ? r.quad.map(([qx, qy]) => [qx * W, qy * H]) : [[x, y], [x + w, y], [x, y + h], [x + w, y + h]])) {
         octx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs); octx.strokeRect(cx - hs / 2, cy - hs / 2, hs, hs);
       }
     }
   }
+}
+
+// Detected (occupied) zone cells as translucent squares, from the last live measurement.
+function drawZoneCells(k, r, W, H) {
+  const side = k === ZONE_ROI.L ? 'L' : 'R', live = V.zoneLive && V.zoneLive[side];
+  if (!S.zone.show || !live || !live.fg) return;
+  const gw = PL.ZONE_GW, gh = PL.ZONE_GH, cw = r.w * W / gw, ch = r.h * H / gh;
+  octx.fillStyle = 'rgba(255,60,60,.35)';
+  for (let c = 0; c < live.fg.length; c++) if (live.fg[c]) octx.fillRect(r.x * W + (c % gw) * cw, r.y * H + Math.floor(c / gw) * ch, cw, ch);
 }
 
 function normPt(e) {
@@ -2032,11 +2315,18 @@ function normPt(e) {
 function hitCorner(r, p) {
   if (!r) return null;
   const tx = 8 / p.b.width, ty = 8 / p.b.height;
+  if (r.quad) {
+    for (let i = 0; i < 4; i++) if (Math.abs(p.x - r.quad[i][0]) <= tx && Math.abs(p.y - r.quad[i][1]) <= ty) return 'v' + i;
+    return null;
+  }
   const cs = { tl: [r.x, r.y], tr: [r.x + r.w, r.y], bl: [r.x, r.y + r.h], br: [r.x + r.w, r.y + r.h] };
   for (const [k, [cx, cy]] of Object.entries(cs)) if (Math.abs(p.x - cx) <= tx && Math.abs(p.y - cy) <= ty) return k;
   return null;
 }
-function inside(r, p) { return r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+function inside(r, p) {
+  if (!r) return false;
+  return r.quad ? PL.pointInPoly(p.x, p.y, r.quad) : p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+}
 function hitRoi(p) {
   if (inside(S.rois[selRoi], p)) return selRoi;
   let best = null, area = Infinity;
@@ -2051,7 +2341,9 @@ overlay.addEventListener('pointerdown', e => {
   const orig = S.rois[selRoi] ? { ...S.rois[selRoi] } : null;
   if (!armed && !e.shiftKey) {
     const c = hitCorner(S.rois[selRoi], p);
-    if (c) {
+    if (c && c[0] === 'v') {
+      drag = { mode: 'vertex', idx: +c[1], key: selRoi, orig: { ...orig, quad: orig.quad.map(q => q.slice()) } };
+    } else if (c) {
       const r = S.rois[selRoi];
       const fx = c[1] === 'l' ? r.x + r.w : r.x, fy = c[0] === 't' ? r.y + r.h : r.y;
       drag = { mode: 'resize', fx, fy, key: selRoi, orig };
@@ -2069,12 +2361,20 @@ overlay.addEventListener('pointermove', e => {
   const p = normPt(e);
   if (!drag) {
     const c = !armed && hitCorner(S.rois[selRoi], p);
-    overlay.style.cursor = c ? (c === 'tl' || c === 'br' ? 'nwse-resize' : 'nesw-resize') : (!armed && hitRoi(p) ? 'move' : 'crosshair');
+    overlay.style.cursor = c ? (c[0] === 'v' ? 'grab' : c === 'tl' || c === 'br' ? 'nwse-resize' : 'nesw-resize') : (!armed && hitRoi(p) ? 'move' : 'crosshair');
     return;
   }
-  if (drag.mode === 'draw') { const r = PL.rectFromPoints(drag.start.x, drag.start.y, p.x, p.y); if (r) S.rois[drag.key] = r; }
+  const quad = isQuadKey(drag.key);
+  if (drag.mode === 'draw') { const r = PL.rectFromPoints(drag.start.x, drag.start.y, p.x, p.y); if (r) S.rois[drag.key] = quad ? quadRoi(rectToQuad(r)) : r; }
   else if (drag.mode === 'resize') { const r = PL.rectFromPoints(drag.fx, drag.fy, p.x, p.y); if (r) S.rois[drag.key] = r; }
-  else if (drag.mode === 'move') S.rois[drag.key] = PL.moveRect(drag.orig, p.x - drag.start.x, p.y - drag.start.y);
+  else if (drag.mode === 'vertex') {
+    const q = drag.orig.quad.map(v => v.slice()); q[drag.idx] = [p.x, p.y];
+    const cq = PL.cleanQuad(q); if (cq) S.rois[drag.key] = quadRoi(cq);
+  } else if (drag.mode === 'move') {
+    const m = PL.moveRect(drag.orig, p.x - drag.start.x, p.y - drag.start.y);
+    S.rois[drag.key] = drag.orig.quad ? quadRoi(drag.orig.quad.map(([qx, qy]) => [qx + m.x - drag.orig.x, qy + m.y - drag.orig.y])) : m;
+  }
+  if (quad) zoneCache[drag.key] = null;
   drawOverlay();
 });
 function endDrag(e, cancel) {
@@ -2082,14 +2382,236 @@ function endDrag(e, cancel) {
   const r = S.rois[drag.key];
   const b = overlay.getBoundingClientRect();
   const tooSmall = !r || r.w * b.width < 3 || r.h * b.height < 3;
-  if (cancel || (drag.mode !== 'move' && tooSmall)) {
+  if (cancel || (drag.mode !== 'move' && drag.mode !== 'vertex' && tooSmall)) {
     if (drag.orig) S.rois[drag.key] = drag.orig; else delete S.rois[drag.key];
   } else if (drag.mode === 'draw') armed = false;
+  if (isQuadKey(drag.key)) {
+    zoneCache[drag.key] = null;
+    const side = drag.key === ZONE_ROI.L ? 'L' : 'R', changed = JSON.stringify(S.rois[drag.key] && S.rois[drag.key].quad) !== JSON.stringify(drag.orig && drag.orig.quad);
+    if (changed && S.zone[side].bg0) { S.zone[side].bg0 = null; S.zone[side].n = 0; S.zone[side].on = S.zone[side].off = null; toast(t('zoneChanged'), true); }
+  }
   drag = null;
   renderRoiList(); drawOverlay(); scheduleSave(); scheduleRefresh();
 }
 overlay.addEventListener('pointerup', e => endDrag(e, false));
 overlay.addEventListener('pointercancel', e => endDrag(e, true));
+
+
+/* =====================================================================
+   DETECTION ZONE (vehicle in the drawn zone -> also finds BSD Light = Off events)
+   ===================================================================== */
+const zoneCache = { RL_ZONE: null, RR_ZONE: null };
+const REF = { running: false, cancel: false };
+V.zoneLive = { L: null, R: null };
+V.refined = [];
+V.zoneEvents = [];
+
+function getZone(side) {
+  const k = ZONE_ROI[side], r = S.rois[k];
+  if (!r || !r.quad) return null;
+  const key = JSON.stringify(r.quad);
+  if (!zoneCache[k] || zoneCache[k].key !== key) zoneCache[k] = { key, roi: { x: r.x, y: r.y, w: r.w, h: r.h }, mask: PL.zoneMask(r.quad) };
+  return zoneCache[k];
+}
+function zoneFeat(side, el) {
+  const z = getZone(side);
+  if (!z) return null;
+  const img = grabRoi(z.roi, 112, el);
+  return img ? PL.zoneFeatures(img.data, img.width, img.height, z.mask) : null;
+}
+function zoneBg0(side) { const b = S.zone[side].bg0; return b ? Float32Array.from(b) : null; }
+function zoneSides() { return ['L', 'R'].filter(sd => getZone(sd)); }
+function samplesHaveZone(side) { return V.samples.some(s => s['Z' + side] != null); }
+
+function measureZonesLive() {
+  for (const side of ['L', 'R']) {
+    const z = getZone(side), b = z && zoneBg0(side);
+    if (!z || !b) { V.zoneLive[side] = null; continue; }
+    const f = zoneFeat(side);
+    if (f) V.zoneLive[side] = PL.zoneDiff(f, b, z.mask, S.zone.dThr);
+  }
+}
+function renderZone() {
+  for (const side of ['L', 'R']) {
+    const has = !!getZone(side), zs = S.zone[side], live = V.zoneLive[side];
+    const occ = live ? live.occ : null, on = PL.lampIsOn(occ, zs.thr);
+    const m = document.querySelector(`.meter.zm[data-zone="${side}"]`);
+    m.hidden = !has;
+    if (has) {
+      m.querySelector('.fill').style.width = (occ != null ? occ * 100 : 0) + '%';
+      m.querySelector('.fill').classList.toggle('on', on);
+      m.querySelector('.thr').style.left = `calc(${zs.thr * 100}% - 1px)`;
+      m.querySelector('.mVal').textContent = occ != null ? occ.toFixed(3) : '—';
+      const st = m.querySelector('.mState'); st.textContent = occ != null ? (on ? t('stateOn') : t('stateOff')) : '—'; st.classList.toggle('on', on);
+      m.querySelector('.lampDot').classList.toggle('on', on);
+    }
+    const c = document.querySelector(`.zcal[data-side="${side}"]`);
+    c.querySelector('.zdot').classList.toggle('on', on);
+    c.querySelector('.calScore').textContent = !has ? t('zoneNoRoi', { roi: ZONE_ROI[side] }) : !zs.bg0 ? t('zoneNeedEmpty') : occ != null ? occ.toFixed(3) : '—';
+    c.querySelector('.emptyVal').textContent = zs.bg0 ? `×${zs.n}` + (zs.off != null ? ` · ${zs.off.toFixed(3)}` : '') : '—';
+    c.querySelector('.vehVal').textContent = zs.on != null ? zs.on.toFixed(3) : '—';
+    const rg = c.querySelector('.thrRange'), nm = c.querySelector('.thrNum');
+    if (document.activeElement !== rg) rg.value = zs.thr;
+    if (document.activeElement !== nm) nm.value = zs.thr.toFixed(3);
+  }
+  const set = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };
+  set('zDThr', S.zone.dThr); set('zMerge', S.zone.mergeGap); set('zMinDur', S.zone.minDuration); set('zLink', S.zone.linkTol);
+  $('zShow').checked = S.zone.show; $('zRefine').checked = S.zone.refine;
+}
+
+// Sample EMPTY (averages up to 10 frames into the empty-road reference; also records the noise level)
+// and Sample VEHICLE (occupancy with a vehicle) -> threshold at the midpoint.
+function zoneSample(side, what) {
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  const z = getZone(side);
+  if (!z) return toast(t('msgNeedRoi', { roi: ZONE_ROI[side] }), true);
+  const zs = S.zone[side];
+  if (what === 'reset') { zs.bg0 = null; zs.n = 0; zs.on = zs.off = null; }
+  else {
+    const f = zoneFeat(side);
+    if (!f) return;
+    if (what === 'empty') {
+      if (zs.bg0) {
+        const prev = Float32Array.from(zs.bg0), n = Math.min(zs.n || 1, 9);
+        zs.off = Math.max(zs.off || 0, PL.zoneDiff(f, prev, z.mask, S.zone.dThr).occ);
+        zs.bg0 = Array.from(prev, (v, i) => Math.round((v * n + f[i]) / (n + 1) * 10) / 10);
+        zs.n = n + 1;
+      } else { zs.bg0 = Array.from(f, v => Math.round(v * 10) / 10); zs.n = 1; zs.off = 0; }
+    } else {
+      if (!zs.bg0) return toast(t('zoneNeedEmpty'), true);
+      zs.on = PL.zoneDiff(f, Float32Array.from(zs.bg0), z.mask, S.zone.dThr).occ;
+    }
+    if (zs.on != null && zs.off != null) {
+      const thr = PL.thresholdFromSamples(zs.on, zs.off);
+      if (thr == null) toast(t('msgOnLeOff', { on: zs.on.toFixed(3), off: zs.off.toFixed(3) }), true);
+      else { zs.thr = thr; toast(t('msgThrSet', { lamp: t('zone' + side), thr: thr.toFixed(3) })); }
+    }
+  }
+  scheduleSave(); measureZonesLive(); renderZone(); drawOverlay(); scheduleExtract();
+}
+
+// One scan sample for the zones (adaptive background per side, updated in time order).
+function zoneScanSample(s, tt) {
+  for (const side of ['L', 'R']) {
+    const key = 'Z' + side, zm = SCAN.zm && SCAN.zm[side], z = getZone(side);
+    s[key] = null;
+    if (!zm || !z) continue;
+    const f = zoneFeat(side);
+    if (!f) continue;
+    if (!zm.bg) { zm.bg = Float32Array.from(f); zm.lastT = tt; s[key] = 0; continue; }
+    const r = PL.zoneDiff(f, zm.bg, z.mask, S.zone.dThr);
+    const dt = zm.lastT == null ? 0.2 : Math.min(1, Math.max(0, tt - zm.lastT));
+    PL.zoneUpdate(zm.bg, f, z.mask, r.fg, dt, S.zone.tauBg, 60);
+    zm.lastT = tt; s[key] = r.occ; V.zoneLive[side] = r;
+  }
+}
+
+// ---------- exact entry / exit frame (frame count) ----------
+function refinedFor(z) {
+  let best = null, bo = 0;
+  for (const r of V.refined) {
+    if (r.side !== z.side) continue;
+    const ov = Math.min(r.tEnd, z.tEnd) - Math.max(r.tStart, z.tStart);
+    if (ov > bo) { bo = ov; best = r; }
+  }
+  return best;
+}
+// Effective In / Out for an event: the reviewer's marks win, else the zone's (exact if refined).
+function effMarks(ev, lab) {
+  const z = ev && ev.zone, r = z ? refinedFor(z) : null;
+  const auto = z ? (r ? { inT: r.inT, outT: r.outT, src: r.exact ? 'exact' : 'approx' } : { inT: z.tStart, outT: z.tEnd, src: 'approx' }) : null;
+  const mi = lab && Number.isFinite(lab.markIn), mo = lab && Number.isFinite(lab.markOut);
+  if (mi || mo) return { inT: mi ? lab.markIn : auto && auto.inT, outT: mo ? lab.markOut : auto && auto.outT, src: 'manual' };
+  return auto || { inT: null, outT: null, src: null };
+}
+// Play a short range slowly and measure every presented frame (one seek, no per-frame seeks).
+async function frameWalk(a, b, fn) {
+  const dt = 1 / (S.fps || 30);
+  for (const rate of [0.5, 0.25]) {
+    await waitSeek(Math.max(0, a));
+    const frames = [{ t: vid.currentTime, occ: fn() }];
+    await new Promise(res => {
+      let done = false;
+      const fin = () => { if (!done) { done = true; vid.pause(); clearTimeout(guard); res(); } };
+      const guard = setTimeout(fin, ((b - a) / rate + 4) * 1000);
+      const cb = (now, md) => {
+        if (done) return;
+        if (md.mediaTime > b + 1e-6 || REF.cancel) return fin();
+        if (md.mediaTime > frames[frames.length - 1].t + 1e-6) frames.push({ t: md.mediaTime, occ: fn() });
+        vid.requestVideoFrameCallback(cb);
+      };
+      vid.requestVideoFrameCallback(cb);
+      vid.playbackRate = rate;
+      vid.play().catch(fin);
+    });
+    vid.playbackRate = 1;
+    const gap = frames.some((f, i) => i > 1 && f.t - frames[i - 1].t > 1.5 * dt);
+    if (!gap || rate === 0.25) return frames;
+  }
+  return [];
+}
+// Confirm an edge with exact seeks (play-mode frames can be 1-3 frames off at high rates):
+// entry: frame t occupied and the frame before not; exit: frame t free and the frame before occupied.
+async function verifyEdge(t, kind, occAt, dt) {
+  for (let k = 0; k < 12 && !REF.cancel; k++) {
+    const here = await occAt(t), prev = await occAt(t - dt);
+    if (kind === 'entry' ? (here && !prev) : (!here && prev)) return t;
+    if (kind === 'entry') t += here ? -dt : dt; else t += here ? dt : -dt;
+  }
+  return null;
+}
+async function refineOne(z) {
+  const side = z.side, zi = getZone(side), dt = 1 / (S.fps || 30), thr = S.zone[side].thr, W = 0.3;
+  if (!zi) return null;
+  // background from 3 frames before the vehicle enters (fallback: the EMPTY reference)
+  const tb = (z.prevOff != null ? z.prevOff : z.firstOn) - W, fs = [];
+  for (const k of [0.6, 0.4, 0.2]) { const tt = tb - k; if (tt < 0) continue; await waitSeek(tt); const f = zoneFeat(side); if (f) fs.push(f); }
+  const bg = fs.length ? PL.medianFeatures(fs) : zoneBg0(side);
+  if (!bg) return null;
+  const occ = () => { const f = zoneFeat(side); return f ? PL.zoneDiff(f, bg, zi.mask, S.zone.dThr).occ : 0; };
+  // seek a quarter frame past t so the frame whose timestamp is t is the one shown
+  const occAt = async t => { await waitSeek(Math.max(0, t + dt / 4)); return occ() >= thr; };
+  let inT = z.firstOn, outT = z.nextOff != null ? z.nextOff : z.lastOn + dt, exact = z.prevOff != null && z.nextOff != null;
+  if (z.prevOff != null) {
+    const e = PL.refineEdge(await frameWalk(Math.max(0, z.prevOff - W), z.firstOn + W, occ), thr, 'entry');
+    const v = await verifyEdge(e != null ? e : z.firstOn, 'entry', occAt, dt);
+    if (v != null) inT = v; else exact = false;
+  }
+  if (REF.cancel) return null;
+  if (z.nextOff != null) {
+    const e = PL.refineEdge(await frameWalk(z.lastOn - W, z.nextOff + W, occ), thr, 'exit');
+    const v = await verifyEdge(e != null ? e : z.nextOff, 'exit', occAt, dt);
+    if (v != null) outT = v; else exact = false;
+  }
+  return { side, tStart: z.tStart, tEnd: z.tEnd, inT, outT, exact };
+}
+async function refineZones(all) {
+  if (REF.running || SCAN.running || !V.ready) return;
+  const list = V.zoneEvents.filter(z => all || !refinedFor(z));
+  if (!list.length) return;
+  REF.running = true; REF.cancel = false;
+  setScanning(true); vid.pause(); vid.muted = true;
+  const t0 = performance.now();
+  let done = 0;
+  try {
+    for (const z of list) {
+      if (REF.cancel) break;
+      $('scanInfo').textContent = t('zoneRefining', { i: done + 1, n: list.length });
+      $('scanBar').style.width = (done / list.length * 100).toFixed(1) + '%';
+      const r = await refineOne(z);
+      if (r) {
+        V.refined = V.refined.filter(x => !(x.side === r.side && Math.min(x.tEnd, r.tEnd) - Math.max(x.tStart, r.tStart) > 0));
+        V.refined.push(r); V.dirty = true;
+      }
+      done++;
+    }
+  } catch (e) { toast(t('scanFailed', { why: e.message }), true); }
+  vid.playbackRate = 1; vid.pause();
+  REF.running = false; setScanning(false);
+  $('scanBar').style.width = '100%';
+  V.scanMsg = { k: 'zoneRefined', v: { n: done, sec: ((performance.now() - t0) / 1000).toFixed(0) } };
+  renderScanInfo(); extractNow(); scheduleRefresh();
+}
 
 
 /* =====================================================================
@@ -2108,7 +2630,9 @@ function fmtDur(sec) {
 }
 
 function takeSample(tt) {
-  SCAN.buf.push({ t: tt, L: scoreLamp('L'), R: scoreLamp('R'), A: S.rois.BSD_ACTIVE ? scoreLamp('A') : null });
+  const s = { t: tt, L: scoreLamp('L'), R: scoreLamp('R'), A: S.rois.BSD_ACTIVE ? scoreLamp('A') : null };
+  zoneScanSample(s, tt);
+  SCAN.buf.push(s);
   SCAN.lastT = tt;
 }
 
@@ -2123,7 +2647,7 @@ function scanUi(tNow, force) {
   $('scanInfo').textContent = t('scanProgress', { pct: (pct * 100).toFixed(1), t: PL.fmtVideoTime(tNow),
     to: PL.fmtVideoTime(SCAN.to), eta: eta == null ? '…' : fmtDur(eta), n: SCAN.buf.length });
   const last = SCAN.buf[SCAN.buf.length - 1];
-  if (last) { V.scores.L = last.L; V.scores.R = last.R; V.scores.A = last.A; renderLamps(); }
+  if (last) { V.scores.L = last.L; V.scores.R = last.R; V.scores.A = last.A; renderLamps(); renderZone(); }
   updateTimeUI(tNow);
   drawChart();
 }
@@ -2214,7 +2738,9 @@ async function startScan() {
   const from = f == null ? 0 : f, to = e == null ? dur : Math.min(e, dur);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return toast(t('scanBadRange'), true);
 
-  SCAN = { running: true, cancel: false, mode: S.scan.mode, from, to, buf: [], t0: performance.now(), lastUi: 0, lastT: -Infinity };
+  if (REF.running) return;
+  SCAN = { running: true, cancel: false, mode: S.scan.mode, from, to, buf: [], t0: performance.now(), lastUi: 0, lastT: -Infinity, zm: {} };
+  for (const side of zoneSides()) SCAN.zm[side] = { bg: zoneBg0(side), lastT: null };
   vid.pause(); vid.muted = true;
   setScanning(true);
   let err = null;
@@ -2238,6 +2764,7 @@ async function startScan() {
   toast(t(V.scanMsg.k, V.scanMsg.v), !!err);
   if (cancelled && Number.isFinite(lastT)) $('scanFrom').value = PL.fmtVideoTime(lastT);
   scheduleRefresh();
+  if (!err && !cancelled && S.zone.refine && V.zoneEvents.length) await refineZones(false);
 }
 function renderScanInfo() {
   if (SCAN.running) return;
@@ -2252,8 +2779,11 @@ let extractTimer = null;
 function scheduleExtract() { clearTimeout(extractTimer); extractTimer = setTimeout(extractNow, 120); }
 function extractNow() {
   const gate = S.scan.gate && V.samples.some(s => s.A != null);
-  V.events = PL.extractEvents(V.samples, { thrL: S.lamps.L.thr, thrR: S.lamps.R.thr, thrA: S.lamps.A.thr,
+  const lamp = PL.extractEvents(V.samples, { thrL: S.lamps.L.thr, thrR: S.lamps.R.thr, thrA: S.lamps.A.thr,
     gate, mergeGap: S.scan.mergeGap, minDuration: S.scan.minDuration });
+  V.zoneEvents = PL.extractZoneEvents(V.samples, { thrZL: S.zone.L.thr, thrZR: S.zone.R.thr, thrA: S.lamps.A.thr,
+    gate, mergeGap: S.zone.mergeGap, minDuration: S.zone.minDuration });
+  V.events = PL.combineEvents(lamp, V.zoneEvents, S.zone.linkTol);
   if (!V.events.some(e => e.id === V.selEvent)) V.selEvent = null;
   remapLabels();
   renderEvents(); drawChart();
@@ -2273,7 +2803,7 @@ function renderEvents() {
   if (!V.events.length) { box.innerHTML = `<div class="evEmpty">${esc(t('evNone'))}</div>`; return; }
   box.innerHTML = V.events.map(e =>
     `<div class="evRow${e.id === V.selEvent ? ' sel' : ''}" data-id="${e.id}"><span>#${e.id}</span>` +
-    `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span><span>${e.duration.toFixed(2)} s</span>` +
+    `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}${e.kind === 'off' ? '<span class="offTag">OFF</span>' : ''}</span><span>${e.duration.toFixed(2)} s</span>` +
     `${kpiBadge((labelOf(e) || {}).kpi)}</div>`).join('');
 }
 function selectEvent(id) {
@@ -2325,17 +2855,19 @@ function drawChart() {
 
   // bucket samples per pixel column (max keeps short spikes visible)
   const sm = chartSamples();
-  const bL = new Float32Array(W).fill(-1), bR = new Float32Array(W).fill(-1);
+  const bL = new Float32Array(W).fill(-1), bR = new Float32Array(W).fill(-1), bZL = new Float32Array(W).fill(-1), bZR = new Float32Array(W).fill(-1);
   const i0 = Math.max(0, PL.lowerBound(sm, x0) - 1), i1 = Math.min(sm.length, PL.lowerBound(sm, x1) + 1);
   for (let i = i0; i < i1; i++) {
     const s = sm[i], px = Math.floor(X(s.t));
     if (px < 0 || px >= W) continue;
     if (s.L != null && s.L > bL[px]) bL[px] = s.L;
     if (s.R != null && s.R > bR[px]) bR[px] = s.R;
+    if (s.ZL != null && s.ZL > bZL[px]) bZL[px] = s.ZL;
+    if (s.ZR != null && s.ZR > bZR[px]) bZR[px] = s.ZR;
   }
   const gapPx = Math.max(2, 1.5 / span * W);  // break lines over unscanned gaps > 1.5 s
-  const line = (b, col) => {
-    c.strokeStyle = col; c.lineWidth = 1.5 * dpr; c.beginPath();
+  const line = (b, col, dash) => {
+    c.strokeStyle = col; c.lineWidth = 1.5 * dpr; c.setLineDash(dash ? [4 * dpr, 3 * dpr] : []); c.beginPath();
     let last = -1e9;
     for (let x = 0; x < W; x++) {
       if (b[x] < 0) continue;
@@ -2369,10 +2901,16 @@ function drawChart() {
   for (const e of V.events) {
     if (e.tEnd < x0 || e.tStart > x1) continue;
     const a = X(e.tStart), w = Math.max(2 * dpr, X(e.tEnd) - a), sel = e.id === V.selEvent;
+    if (e.kind === 'off') {      // vehicle in zone, lamp never on: outlined band
+      c.strokeStyle = e.side === 'L' ? '#818cf8' : '#34d399'; c.lineWidth = (sel ? 2.5 : 1.5) * dpr;
+      c.setLineDash([3 * dpr, 2 * dpr]); c.strokeRect(a, top + 1, w, ph - 2); c.setLineDash([]);
+      continue;
+    }
     c.fillStyle = e.side === 'L' ? (sel ? 'rgba(255,77,77,.45)' : 'rgba(255,77,77,.2)') : (sel ? 'rgba(255,159,26,.45)' : 'rgba(255,159,26,.2)');
     c.fillRect(a, top, w, ph);
   }
 
+  line(bZL, '#818cf8', true); line(bZR, '#34d399', true); c.setLineDash([]);
   line(bL, '#ff4d4d'); line(bR, '#ff9f1a');
 
   // thresholds
@@ -2458,7 +2996,7 @@ function ensureLabel(ev) {
   let lab = labelOf(ev);
   if (!lab) {
     const r = reviewStore(true);
-    lab = { side: ev.side, tStart: ev.tStart, tEnd: ev.tEnd, kpi: null, note: '', fps: null, markIn: null, markOut: null };
+    lab = { side: ev.side, kind: ev.kind || 'on', tStart: ev.tStart, tEnd: ev.tEnd, kpi: null, note: '', fps: null, markIn: null, markOut: null };
     r.labels.push(lab);
     V.labelMap[V.events.indexOf(ev)] = r.labels.length - 1;
   }
@@ -2475,6 +3013,7 @@ function passesFilter(ev) {
   const f = S.review.filter;
   if (f === 'L' || f === 'R') return ev.side === f;
   if (f === 'todo') { const l = labelOf(ev); return !l || !l.kpi; }
+  if (f === 'off') return ev.kind === 'off';
   return true;
 }
 
@@ -2491,10 +3030,10 @@ function renderReviewList() {
   if (!n) { box.innerHTML = `<div class="evEmpty">${esc(t('rvNoEvents'))}</div>`; $('rvOrphans').textContent = ''; return; }
   const fr = S.fps || 30;
   box.innerHTML = V.events.filter(passesFilter).map(e => {
-    const l = labelOf(e), fc = l ? PL.frameCount(l.markIn, l.markOut, fr) : null, ck = clockText(e.tStart);
+    const l = labelOf(e), em = effMarks(e, l), fc = PL.frameCount(em.inT, em.outT, fr), ck = clockText(e.tStart);
     return `<div class="rvRow${e.id === RV.sel ? ' sel' : ''}" data-id="${e.id}"><span>#${e.id}</span>` +
-      `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span>${kpiBadge(l && l.kpi)}` +
-      `<span class="sub">${e.duration.toFixed(2)} s${ck ? ' · ' + ck : ''}${fc != null ? ' · ' + fc + ' f' : ''}` +
+      `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}${e.kind === 'off' ? '<span class="offTag">OFF</span>' : ''}</span>${kpiBadge(l && l.kpi)}` +
+      `<span class="sub">${e.duration.toFixed(2)} s${ck ? ' · ' + ck : ''}${fc != null ? ' · ' + (em.src === 'approx' ? '≈' : '') + fc + ' f' : ''}` +
       `${l && l.fps ? ' · ' + l.fps + ' fps' : ''}${l && l.note ? ' · ✎' : ''}</span></div>`;
   }).join('');
   const r = reviewStore(false);
@@ -2590,11 +3129,11 @@ function drawWin() {
   c.fillRect(X(ev.tStart), 0, Math.max(2, X(ev.tEnd) - X(ev.tStart)), H);
   c.fillStyle = '#4b5368';
   for (const tt of PL.stripTimes(w0, w1, STRIP_N)) c.fillRect(Math.round(X(tt)), H - 5 * dpr, 1 * dpr, 5 * dpr);
-  const l = labelOf(ev);
+  const em = effMarks(ev, labelOf(ev));
   c.font = `bold ${10 * dpr}px sans-serif`; c.textBaseline = 'top';
-  for (const [k, col, txt] of [['markIn', '#2fd158', 'I'], ['markOut', '#4da3ff', 'O']]) {
-    if (!l || !Number.isFinite(l[k])) continue;
-    const x = Math.round(X(l[k]));
+  for (const [k, col, txt] of [['inT', '#2fd158', 'I'], ['outT', '#4da3ff', 'O']]) {
+    if (!Number.isFinite(em[k])) continue;
+    const x = Math.round(X(em[k]));
     c.fillStyle = col; c.fillRect(x - dpr, 0, 2 * dpr, H); c.fillText(txt, x + 3 * dpr, 2 * dpr);
   }
   c.fillStyle = '#fff'; c.fillRect(Math.round(X(rvid.currentTime)), 0, 2 * dpr, H);
@@ -2751,6 +3290,11 @@ function renderSuggestion() {
   $('kpiBtns').querySelectorAll('.kpiBtn').forEach(b => b.classList.remove('sug'));
   $('rvSugShow').checked = S.review.suggest;
   if (!S.review.suggest || !ev) { box.innerHTML = ''; return; }
+  if (ev.kind === 'on' && !ev.zone && getZone(ev.side) && samplesHaveZone(ev.side)) {
+    box.innerHTML = `<div><b>${esc(t('rvSugTitle'))}</b><div>${esc(t('rvSugNoVehicle'))}</div></div>`;
+    const b = $('kpiBtns').querySelector('[data-kpi="infrastructure"]'); if (b) b.classList.add('sug');
+    return;
+  }
   if (RV.full) { box.innerHTML = `<div class="hint" style="margin:0">${esc(t('rvSugFull'))}</div>`; return; }
   const e = RV.cache.get(stripKey(ev));
   if (!e || !e.complete || !e.suggest) { box.innerHTML = `<div class="hint" style="margin:0">${esc(t('rvSugWait'))}</div>`; return; }
@@ -2787,15 +3331,19 @@ function renderReviewPanel() {
   }
   const ck = clockText(ev.tStart), camKey = CAM_ROI[ev.side];
   $('rvHead').innerHTML = t('rvHead', { id: ev.id, side: ev.side, cam: camKey, t0: PL.fmtVideoTime(ev.tStart), t1: PL.fmtVideoTime(ev.tEnd), d: ev.duration.toFixed(2) }) +
+    (ev.kind === 'off' ? ` <span class="offTag">${esc(t('bsdOffTag'))}</span>` : '') +
     (ck ? ` · ${esc(t('rvClockAt', { c: ck }))}` : '') + (!S.rois[camKey] ? ` · <span style="color:#ffb4a8">${esc(t('rvNoCamRoi', { roi: camKey }))}</span>` : '');
   // marks + frame count
-  $('rvInVal').textContent = l && Number.isFinite(l.markIn) ? PL.fmtVideoTime(l.markIn) : '—';
-  $('rvOutVal').textContent = l && Number.isFinite(l.markOut) ? PL.fmtVideoTime(l.markOut) : '—';
-  const fr = S.fps || 30, fc = l ? PL.frameCount(l.markIn, l.markOut, fr) : null, fb = $('rvFrames');
-  const bad = l && Number.isFinite(l.markIn) && Number.isFinite(l.markOut) && fc == null;
+  const em = effMarks(ev, l), auto = em.src === 'exact' || em.src === 'approx';
+  const tag = auto ? `<span class="autoTag">${esc(t('rvAuto'))}</span>` : '';
+  $('rvInVal').innerHTML = Number.isFinite(em.inT) ? PL.fmtVideoTime(em.inT) + tag : '—';
+  $('rvOutVal').innerHTML = Number.isFinite(em.outT) ? PL.fmtVideoTime(em.outT) + tag : '—';
+  const fr = S.fps || 30, fc = PL.frameCount(em.inT, em.outT, fr), fb = $('rvFrames');
+  const bad = Number.isFinite(em.inT) && Number.isFinite(em.outT) && fc == null;
   fb.classList.toggle('bad', !!bad);
+  const srcTxt = em.src === 'exact' ? t('rvExact') : em.src === 'approx' ? t('rvApprox') : '';
   fb.innerHTML = bad ? esc(t('rvMarkBad')) : fc == null ? '—' :
-    `${fc} f<small>${esc(t('rvFramesDur', { s: (fc / fr).toFixed(3), fps: fr }))}</small>`;
+    `${em.src === 'approx' ? '≈' : ''}${fc} f<small>${esc(t('rvFramesDur', { s: (fc / fr).toFixed(3), fps: fr }))}${srcTxt ? ' · ' + esc(srcTxt) : ''}</small>`;
   // fps
   const fpsRoi = FPS_ROI[ev.side];
   $('rvFpsHint').textContent = S.rois[fpsRoi] ? t('rvFpsHint', { roi: fpsRoi, side: ev.side }) : t('rvFpsNoRoi', { roi: fpsRoi, side: ev.side });
@@ -2852,7 +3400,11 @@ const RP = { running: false, cancel: false };
 function baseName() { return V.file ? V.file.name.replace(/\.[^.]+$/, '') : ''; }
 function allRows() {
   remapLabels();
-  return PL.buildRows(V.events, V.events.map(labelOf), { videoName: baseName(), recFps: S.fps, anchor: anchor() });
+  const marks = V.events.map(e => effMarks(e, labelOf(e)));
+  const labs = V.events.map((e, i) => Object.assign({}, labelOf(e) || {}, { markIn: marks[i].inT, markOut: marks[i].outT }));
+  // Off events have no lamp: their Timeline is the vehicle's entry into the zone
+  const evs = V.events.map((e, i) => (e.kind === 'off' && Number.isFinite(marks[i].inT) ? Object.assign({}, e, { tStart: marks[i].inT }) : e));
+  return PL.buildRows(evs, labs, { videoName: baseName(), recFps: S.fps, anchor: anchor() });
 }
 function exportRows() { const r = allRows(); return S.report.onlyLabeled ? r.filter(x => x.kpi) : r; }
 
@@ -2894,13 +3446,21 @@ function summarySvg(counts) {
   });
   return o + '</svg>';
 }
-function countsTable(counts) {
+function onOffCounts(rows) {
+  const c = { On: { L: 0, R: 0 }, Off: { L: 0, R: 0 } };
+  for (const r of rows) c[r.bsdLight][r.side]++;
+  return c;
+}
+function countsTable(counts, onoff) {
   const cats = PL.KPI.concat(['none']);
   let tl = 0, tr = 0;
   const rows = cats.map(k => { tl += counts[k].L; tr += counts[k].R;
     return `<tr><td>${esc(t('kpi_' + k))}</td><td class="num">${counts[k].L}</td><td class="num">${counts[k].R}</td><td class="num">${counts[k].L + counts[k].R}</td></tr>`; }).join('');
   return `<table class="rpTable"><thead><tr><th>${esc(t('rpCountsKpi'))}</th><th>L</th><th>R</th><th>${esc(t('rpTotal'))}</th></tr></thead>` +
-    `<tbody>${rows}</tbody><tfoot><tr><td>${esc(t('rpTotal'))}</td><td class="num">${tl}</td><td class="num">${tr}</td><td class="num">${tl + tr}</td></tr></tfoot></table>`;
+    `<tbody>${rows}</tbody><tfoot><tr><td>${esc(t('rpTotal'))}</td><td class="num">${tl}</td><td class="num">${tr}</td><td class="num">${tl + tr}</td></tr>` +
+    (onoff ? [['On', 'rpBsdOn'], ['Off', 'rpBsdOff']].map(([k, lbl]) =>
+      `<tr><td>${esc(t(lbl))}</td><td class="num">${onoff[k].L}</td><td class="num">${onoff[k].R}</td><td class="num">${onoff[k].L + onoff[k].R}</td></tr>`).join('') : '') +
+    `</tfoot></table>`;
 }
 function tableHead(extras, thumb) {
   const cols = PL.SHEET_COLS.slice();
@@ -2924,7 +3484,7 @@ function renderReport() {
   const counts = PL.countSummary(all);
   $('rpMeta').textContent = V.file ? t('rpMeta', { name: baseName(), n: all.length, done: all.filter(r => r.kpi).length }) : t('msgNeedVideo');
   $('rpChart').innerHTML = all.length ? summarySvg(counts) : `<p class="hint">${esc(t('rpNoRows'))}</p>`;
-  $('rpCounts').innerHTML = all.length ? countsTable(counts) : '';
+  $('rpCounts').innerHTML = all.length ? countsTable(counts, onOffCounts(all)) : '';
   $('rpTable').innerHTML = tableHead(S.report.extras, false) +
     `<tbody>${rows.map(r => `<tr data-id="${r.id}">${tableRow(r, S.report.extras)}</tr>`).join('')}</tbody>`;
 }
@@ -3040,7 +3600,7 @@ tfoot td{font-weight:700;}
 <p class="sub">${esc(t('rpMeta', { name: baseName(), n: all.length, done: all.filter(r => r.kpi).length }))}</p>
 <table class="meta">${meta}</table>
 <h2>${esc(t('rpTitle'))}</h2>
-<div class="grid"><div class="viz-root">${summarySvg(counts)}</div><div>${countsTable(counts)}</div></div>
+<div class="grid"><div class="viz-root">${summarySvg(counts)}</div><div>${countsTable(counts, onOffCounts(all))}</div></div>
 <h2>${esc(t('rpTable'))} (${rows.length})</h2>
 <div class="wrap"><table class="events">${tableHead(true, true)}<tbody>${body}</tbody></table></div>
 </main></body></html>`;
@@ -3099,10 +3659,11 @@ function buildSession() {
   return {
     app: 'BSD-Event-Analyzer', schema: 1, savedAt: new Date().toISOString(),
     video: V.meta || null,
-    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan, review: S.review, report: S.report },
+    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan, review: S.review, report: S.report, zone: S.zone },
     samples: PL.packSamples(V.samples),
     events: V.events,
-    review: reviewStore(false)
+    review: reviewStore(false),
+    refined: V.refined
   };
 }
 function saveSession() {
@@ -3138,6 +3699,9 @@ async function loadSessionText(text) {
   else { V.samples = smp; V.dirty = false; toast(smp.length ? t('scanDataLoaded', { n: smp.length }) : t('sessionLoaded')); }
   $('fpsIn').value = S.fps; syncRedInputs(); syncScanInputs();
   RV.cache.clear(); RV.sel = null;
+  zoneCache.RL_ZONE = zoneCache.RR_ZONE = null;
+  V.refined = Array.isArray(d.refined) ? d.refined.filter(r => r && (r.side === 'L' || r.side === 'R') && [r.tStart, r.tEnd, r.inT, r.outT].every(Number.isFinite))
+    .map(r => ({ side: r.side, tStart: r.tStart, tEnd: r.tEnd, inT: r.inT, outT: r.outT, exact: !!r.exact })) : [];
   renderRoiList(); drawOverlay(); scheduleRefresh(); renderLamps(); extractNow(); scheduleSave();
   if (S.view === 'review') rvEnter();
 }
@@ -3147,7 +3711,7 @@ async function loadSessionText(text) {
    WIRING
    ===================================================================== */
 function setView(v) {
-  if (SCAN.running && v !== 'edit') return;
+  if ((SCAN.running || REF.running) && v !== 'edit') return;
   S.view = v;
   $('viewEdit').hidden = v !== 'edit'; $('viewReview').hidden = v !== 'review'; $('viewReport').hidden = v !== 'report';
   document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -3217,7 +3781,7 @@ $('scanGate').onchange = e => { S.scan.gate = e.target.checked; scheduleSave(); 
 $('evMergeGap').onchange = e => { const v = parseFloat(e.target.value); if (v >= 0) S.scan.mergeGap = v; syncScanInputs(); scheduleSave(); scheduleExtract(); };
 $('evMinDur').onchange = e => { const v = parseFloat(e.target.value); if (v >= 0) S.scan.minDuration = v; syncScanInputs(); scheduleSave(); scheduleExtract(); };
 $('btnScan').onclick = startScan;
-$('btnScanCancel').onclick = () => { SCAN.cancel = true; };
+$('btnScanCancel').onclick = () => { SCAN.cancel = true; REF.cancel = true; };
 $('btnClearScan').onclick = async () => {
   if (!V.samples.length) return;
   const ok = await showModal(t('clearScan'), esc(t('clearScanConfirm')),
@@ -3259,7 +3823,7 @@ document.addEventListener('keydown', e => {
   if (S.view === 'review') return reviewKey(e);
   if (S.view !== 'edit') return;
   const k = e.key;
-  if (SCAN.running) { if (k === 'Escape') SCAN.cancel = true; return; }
+  if (SCAN.running || REF.running) { if (k === 'Escape') { SCAN.cancel = true; REF.cancel = true; } return; }
   if (k === ' ') { e.preventDefault(); togglePlay(); }
   else if (k === ',') step('-1f');
   else if (k === '.') step('1f');
@@ -3305,6 +3869,18 @@ $('rvAnchorClock').addEventListener('change', applyAnchorInputs);
 $('rvAnchorClear').onclick = () => { const r = reviewStore(false); if (r) { r.anchor = null; scheduleSave(); } renderAnchor(); renderReviewList(); renderReviewPanel(); renderEvents(); };
 $('rvAnchorCap').classList.add('empty'); $('rvFpsCap').classList.add('empty');
 if ('requestVideoFrameCallback' in rvid) rvid.requestVideoFrameCallback(rvOnFrame);
+document.querySelectorAll('.zcal').forEach(c => {
+  const side = c.dataset.side;
+  c.querySelectorAll('[data-zs]').forEach(b => b.onclick = () => zoneSample(side, b.dataset.zs));
+  const setThr = v => { v = parseFloat(v); if (Number.isFinite(v)) { S.zone[side].thr = PL.clamp(v, 0, 1); renderZone(); drawOverlay(); scheduleSave(); scheduleExtract(); } };
+  c.querySelector('.thrRange').addEventListener('input', e => setThr(e.target.value));
+  c.querySelector('.thrNum').addEventListener('change', e => setThr(e.target.value));
+});
+for (const [id, k, lo, hi, rescan] of [['zDThr', 'dThr', 1, 255, true], ['zMerge', 'mergeGap', 0, 10], ['zMinDur', 'minDuration', 0, 10], ['zLink', 'linkTol', 0, 10]])
+  $(id).onchange = e => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v >= lo && v <= hi) { S.zone[k] = v; if (rescan) colourChanged(); else scheduleExtract(); scheduleSave(); } renderZone(); scheduleRefresh(); };
+$('zShow').onchange = e => { S.zone.show = e.target.checked; scheduleSave(); drawOverlay(); };
+$('zRefine').onchange = e => { S.zone.refine = e.target.checked; scheduleSave(); };
+$('btnRefine').onclick = () => { if (!V.zoneEvents.length) return toast(t('zoneNoEvents'), true); refineZones(true); };
 $('clipFromCur').onclick = () => { if (V.ready) $('clipFrom').value = PL.fmtVideoTime(curTime()); };
 $('clipToCur').onclick = () => { if (V.ready) $('clipTo').value = PL.fmtVideoTime(curTime()); };
 $('btnClip').onclick = () => {
