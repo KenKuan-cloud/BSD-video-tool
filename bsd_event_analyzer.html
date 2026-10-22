@@ -1533,6 +1533,9 @@ const I18N = {
     rvSugNoVehicle: 'Infrastructure?: the lamp was on but no vehicle was detected in the detection zone.',
     rvAuto: 'auto', rvExact: 'auto, exact frame', rvApprox: 'estimate: press "Refine frame counts now" in Edit',
     rpBsdOn: 'BSD Light On', rpBsdOff: 'BSD Light Off (missed)',
+    scanSpeed: '{x}× actual', scanStalls: '{n} stall(s) recovered', scanSlowed: 'Playback kept stalling: scan speed lowered to {r}×.',
+    scanStalledStop: 'playback stopped responding at {t}', scanVideoError: 'video decode error (code {code}) at {t}',
+    scanFailedResume: 'Scan stopped: {why}. Data so far is kept; press Start scan to continue from {t} (try a lower speed, or remux the file to MP4).',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -1652,6 +1655,9 @@ const I18N = {
     rvSugNoVehicle: 'Infrastructure？：报警灯亮了，但检测区域内未检测到车辆。',
     rvAuto: '自动', rvExact: '自动，精确到帧', rvApprox: '估计值：请在编辑视图按“立即精确计算帧数”',
     rpBsdOn: 'BSD Light On（亮）', rpBsdOff: 'BSD Light Off（漏报）',
+    scanSpeed: '实际 {x}×', scanStalls: '已自动恢复 {n} 次卡顿', scanSlowed: '播放多次卡顿：扫描速度已降至 {r}×。',
+    scanStalledStop: '播放在 {t} 停止响应', scanVideoError: '视频解码错误（代码 {code}），位置 {t}',
+    scanFailedResume: '扫描中止：{why}。已保留现有数据；按“开始扫描”可从 {t} 继续（可尝试降低速度，或将文件转封装为 MP4）。',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -1771,6 +1777,9 @@ const I18N = {
     rvSugNoVehicle: 'Infrastructure？：警示燈亮了，但偵測區域內未偵測到車輛。',
     rvAuto: '自動', rvExact: '自動，精確到格', rvApprox: '估計值：請在編輯檢視按「立即精確計算影格數」',
     rpBsdOn: 'BSD Light On（亮）', rpBsdOff: 'BSD Light Off（漏報）',
+    scanSpeed: '實際 {x}×', scanStalls: '已自動恢復 {n} 次卡頓', scanSlowed: '播放多次卡頓：掃描速度已降至 {r}×。',
+    scanStalledStop: '播放在 {t} 停止回應', scanVideoError: '影片解碼錯誤（代碼 {code}），位置 {t}',
+    scanFailedResume: '掃描中止：{why}。已保留現有資料；按「開始掃描」可從 {t} 繼續（可嘗試降低速度，或將檔案轉封裝為 MP4）。',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -2644,8 +2653,11 @@ function scanUi(tNow, force) {
   const pct = span > 0 ? PL.clamp((tNow - SCAN.from) / span, 0, 1) : 1;
   $('scanBar').style.width = (pct * 100).toFixed(1) + '%';
   const eta = PL.scanEta(SCAN.from, SCAN.to, tNow, (now - SCAN.t0) / 1000);
+  const el = (now - SCAN.t0) / 1000, speed = el > 1 ? (tNow - SCAN.from) / el : null;
   $('scanInfo').textContent = t('scanProgress', { pct: (pct * 100).toFixed(1), t: PL.fmtVideoTime(tNow),
-    to: PL.fmtVideoTime(SCAN.to), eta: eta == null ? '…' : fmtDur(eta), n: SCAN.buf.length });
+    to: PL.fmtVideoTime(SCAN.to), eta: eta == null ? '…' : fmtDur(eta), n: SCAN.buf.length }) +
+    (speed != null ? ' · ' + t('scanSpeed', { x: speed.toFixed(1) }) : '') +
+    (SCAN.stalls ? ' · ' + t('scanStalls', { n: SCAN.stalls }) : '');
   const last = SCAN.buf[SCAN.buf.length - 1];
   if (last) { V.scores.L = last.L; V.scores.R = last.R; V.scores.A = last.A; renderLamps(); renderZone(); }
   updateTimeUI(tNow);
@@ -2680,43 +2692,77 @@ async function scanSeek() {
   for (let i = 0; i <= n && !SCAN.cancel; i++) {
     if (document.hidden) await waitVisible();
     const tt = Math.min(SCAN.to, SCAN.from + i * dt);   // index-based: no float drift
-    await waitSeek(tt);
-    takeSample(tt);
+    for (let k = 0; ; k++) {
+      try { await waitSeek(tt); break; }
+      catch (e) { SCAN.stalls = (SCAN.stalls || 0) + 1; if (k >= 2 || SCAN.cancel) throw new Error(t('scanStalledStop', { t: PL.fmtVideoTime(tt) })); }
+    }
+    try { takeSample(tt); } catch (e) { SCAN.sampleErrors = (SCAN.sampleErrors || 0) + 1; SCAN.lastT = tt; }
     scanUi(tt);
   }
 }
 
 // Fast: play muted at N× and sample every presented frame.
+// A watchdog recovers from playback stalls (decoder / renderer starving at high speed, the browser
+// pausing the video by itself, a broken frame-callback chain): it jumps back to the last scanned
+// frame and plays again, halves the speed when stalls repeat, and gives up with a clear message.
+const STALL_MS = 3000, STALL_TRIES = 6;
 async function scanPlay() {
   await waitSeek(SCAN.from);
   takeSample(SCAN.from);
-  vid.playbackRate = S.scan.playRate;
+  let rate = S.scan.playRate;
+  SCAN.rate = rate; SCAN.stalls = 0; SCAN.sampleErrors = 0;
   await new Promise((resolve, reject) => {
-    let finished = false;
+    let finished = false, recovering = false, failsInRow = 0, gen = 0, lastFrameWall = performance.now();
     const finish = err => {
       if (finished) return;
-      finished = true; vid.pause(); clearInterval(watch);
-      vid.removeEventListener('ended', onEnd); document.removeEventListener('visibilitychange', onVis);
+      finished = true; gen++; vid.pause(); clearInterval(watch);
+      vid.removeEventListener('ended', onEnd); vid.removeEventListener('error', onErr); document.removeEventListener('visibilitychange', onVis);
       err ? reject(err) : resolve();
     };
-    const onEnd = () => finish();
-    const onVis = () => {
-      if (document.hidden) { vid.pause(); toast(t('scanHidden'), true); }
-      else if (!finished) vid.play().catch(finish);
-    };
-    const cb = (now, md) => {
-      if (finished) return;
+    const start = () => { if (!finished && !document.hidden) { vid.playbackRate = rate; vid.play().catch(() => {}); } };   // failures -> watchdog
+    const onFrame = md => {
       if (SCAN.cancel) return finish();
       const tt = md.mediaTime;
       if (tt > SCAN.to) return finish();
-      if (tt > SCAN.lastT) { takeSample(tt); scanUi(tt); }
-      vid.requestVideoFrameCallback(cb);
+      lastFrameWall = performance.now();
+      if (tt > SCAN.lastT) {
+        failsInRow = 0;
+        try { takeSample(tt); } catch (e) { SCAN.sampleErrors++; SCAN.lastT = tt; }
+        scanUi(tt);
+      }
     };
-    const watch = setInterval(() => { if (SCAN.cancel) finish(); }, 250);   // cancel while stalled/hidden
+    // (Re)arm the frame-callback chain; an older chain stops at its next callback.
+    const arm = () => {
+      const g = ++gen;
+      const f = (now, md) => { if (g !== gen || finished) return; vid.requestVideoFrameCallback(f); onFrame(md); };
+      vid.requestVideoFrameCallback(f);
+    };
+    const onEnd = () => finish();
+    const onErr = () => finish(new Error(t('scanVideoError', { code: vid.error ? vid.error.code : '?', t: PL.fmtVideoTime(SCAN.lastT) })));
+    const onVis = () => {
+      if (document.hidden) { vid.pause(); toast(t('scanHidden'), true); }
+      else { lastFrameWall = performance.now(); start(); }
+    };
+    const watch = setInterval(async () => {
+      if (finished || recovering) return;
+      if (SCAN.cancel) return finish();
+      if (document.hidden) { lastFrameWall = performance.now(); return; }
+      if (vid.ended) return finish();
+      const idle = performance.now() - lastFrameWall;
+      if (vid.paused && idle > 700) { start(); }                 // paused by the browser: just play again
+      if (idle < STALL_MS) return;
+      recovering = true; SCAN.stalls++; failsInRow++;
+      if (failsInRow > STALL_TRIES) { recovering = false; return finish(new Error(t('scanStalledStop', { t: PL.fmtVideoTime(SCAN.lastT) }))); }
+      if ((failsInRow >= 2 || SCAN.stalls % 3 === 0) && rate > 1) { rate = Math.max(1, rate / 2); SCAN.rate = rate; toast(t('scanSlowed', { r: rate }), true); }
+      try { vid.pause(); await waitSeek(Math.max(SCAN.from, SCAN.lastT)); } catch (e) { /* retried next round */ }
+      lastFrameWall = performance.now(); recovering = false;
+      if (!finished) { arm(); start(); }
+    }, 500);
     vid.addEventListener('ended', onEnd);
+    vid.addEventListener('error', onErr);
     document.addEventListener('visibilitychange', onVis);
-    vid.requestVideoFrameCallback(cb);
-    if (document.hidden) onVis(); else vid.play().catch(finish);
+    arm();
+    if (document.hidden) onVis(); else start();
   });
 }
 
@@ -2760,9 +2806,11 @@ async function startScan() {
   if (err) V.scanMsg = { k: 'scanFailed', v: { why: err.message || String(err) } };
   else if (cancelled) V.scanMsg = { k: 'scanCancelled', v: { t: PL.fmtVideoTime(lastT) } };
   else V.scanMsg = { k: 'scanDone', v: { n: V.events.length, s: nSamp, sec: secs } };
+  if (err && Number.isFinite(lastT)) V.scanMsg = { k: 'scanFailedResume', v: { why: err.message || String(err), t: PL.fmtVideoTime(lastT) } };
   renderScanInfo();
   toast(t(V.scanMsg.k, V.scanMsg.v), !!err);
-  if (cancelled && Number.isFinite(lastT)) $('scanFrom').value = PL.fmtVideoTime(lastT);
+  if ((cancelled || err) && Number.isFinite(lastT)) $('scanFrom').value = PL.fmtVideoTime(lastT);
+  if (SCAN.stalls && !err) toast(t(V.scanMsg.k, V.scanMsg.v) + ' ' + t('scanStalls', { n: SCAN.stalls }), false);
   scheduleRefresh();
   if (!err && !cancelled && S.zone.refine && V.zoneEvents.length) await refineZones(false);
 }
