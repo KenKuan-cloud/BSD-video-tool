@@ -182,9 +182,34 @@
   .offscreenVid{position:fixed;left:-20px;top:-20px;width:4px;height:4px;opacity:0;pointer-events:none;}
   .evRow .kb{font-size:9.5px;}
 
+  .kpiBtn.sug:not(.on){border-style:dashed;border-color:#8a90a2;}
+  .sugBox{margin-top:8px;padding:7px 9px;border-radius:7px;background:#f4f6fb;font-size:12px;color:#333;display:flex;gap:8px;align-items:center;}
+  .sugBox:empty{display:none;}
+  .sugBox canvas{flex:0 0 96px;width:96px;height:26px;}
+  .sugBox b{font-weight:600;}
+  .sugBox .hint{margin:2px 0 0;font-size:11px;}
+
   /* ---- report view ---- */
-  .report{flex:1;overflow:auto;padding:24px;}
-  .report .card{max-width:900px;margin:0 auto;}
+  .report{flex:1;overflow:auto;padding:18px;}
+  .rpWrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  .rpTop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+  .rpTop h3{margin:0;}
+  .rpGrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,1fr);gap:18px;align-items:start;}
+  @media (max-width:900px){ .rpGrid{grid-template-columns:1fr;} }
+  .lsel{padding:3px 5px;border:1px solid #cfd4e0;border-radius:6px;font:12px inherit;}
+  .rpCopyBox{width:100%;height:90px;margin-top:6px;font:11px ui-monospace,Consolas,monospace;}
+  .rpTableWrap{overflow-x:auto;}
+  .rpTable{border-collapse:collapse;width:100%;font-size:12px;}
+  .rpTable th{background:#eef1f7;text-align:left;padding:5px 8px;font-weight:600;white-space:nowrap;border-bottom:1px solid #d5d9e4;position:sticky;top:0;}
+  .rpTable td{padding:4px 8px;border-bottom:1px solid #eef0f5;white-space:nowrap;}
+  .rpTable td.num{text-align:right;font-family:ui-monospace,Consolas,monospace;}
+  .rpTable td.note{white-space:normal;min-width:160px;}
+  .rpTable tbody tr{cursor:pointer;}
+  .rpTable tbody tr:hover{background:#f4f6fb;}
+  .rpTable tfoot td{font-weight:700;border-top:1px solid #d5d9e4;}
+  /* summary chart colours: categorical slots 1-2 (blue, orange), validated light + dark */
+  .viz-root{--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--grid:#e6e5e0;--series-1:#2a78d6;--series-2:#eb6834;}
+  .viz-root svg{display:block;width:100%;height:auto;}
 
   /* ---- modal / toast ---- */
   .modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;}
@@ -256,7 +281,7 @@
       <div class="chartBox" id="chartBox">
         <canvas id="chart"></canvas>
         <div class="chartLegend"><span><i style="background:#ff4d4d"></i>L</span><span><i style="background:#ff9f1a"></i>R</span>
-          <span><i style="background:#2fd158"></i>BSD Active</span><span data-i18n="chartHint"></span></div>
+          <span><i style="background:#2fd158"></i><span data-i18n="lampA"></span></span><span data-i18n="chartHint"></span></div>
       </div>
     </section>
 
@@ -403,6 +428,8 @@
         <h3 data-i18n="rvKpiTitle"></h3>
         <div class="kpiBtns" id="kpiBtns"></div>
         <label class="chk"><input type="checkbox" id="rvAuto"><span data-i18n="rvAutoAdvance"></span></label>
+        <div class="sugBox" id="rvSuggest"></div>
+        <label class="chk"><input type="checkbox" id="rvSugShow"><span data-i18n="rvSugShow"></span></label>
       </div>
       <div class="card">
         <h3 data-i18n="rvMeasTitle"></h3>
@@ -452,7 +479,42 @@
   <video id="fvid" muted preload="auto" playsinline class="offscreenVid"></video>
 
   <main class="report" id="viewReport" hidden>
-    <div class="card"><h3 data-i18n="viewReport"></h3><p class="hint" data-i18n="reportPlaceholder"></p></div>
+    <div class="rpWrap">
+      <div class="card">
+        <div class="rpTop"><h3 data-i18n="rpTitle"></h3><span id="rpMeta" class="hint" style="margin:0"></span></div>
+        <div class="rpGrid">
+          <div class="viz-root" id="rpChart"></div>
+          <div id="rpCounts"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rpExport"></h3>
+        <div class="crow">
+          <button class="sbtn pri" id="rpCsv" data-i18n="rpCsv"></button>
+          <button class="sbtn pri" id="rpHtml" data-i18n="rpHtml"></button>
+          <button class="sbtn" id="rpSession" data-i18n="saveSession"></button>
+        </div>
+        <div class="crow" style="margin-top:8px">
+          <button class="sbtn pri" id="rpCopy" data-i18n="rpCopy"></button>
+          <select id="rpLayout" class="lsel"><option value="compact" data-i18n="rpLayoutCompact"></option><option value="template" data-i18n="rpLayoutTemplate"></option></select>
+          <label class="chk"><input type="checkbox" id="rpHeader"><span data-i18n="rpHeader"></span></label>
+          <label class="chk"><input type="checkbox" id="rpNameFirst"><span data-i18n="rpNameFirst"></span></label>
+        </div>
+        <p class="hint" data-i18n="rpTemplateHint"></p>
+        <div id="rpProgRow" hidden>
+          <div class="prog"><div id="rpBar"></div></div>
+          <div class="crow"><span id="rpInfo" class="v"></span><button class="sbtn" id="rpCancel" data-i18n="cancel"></button></div>
+        </div>
+        <textarea id="rpCopyBox" class="rpCopyBox" hidden readonly></textarea>
+      </div>
+      <div class="card">
+        <div class="rpTop"><h3 data-i18n="rpTable"></h3>
+          <label class="chk"><input type="checkbox" id="rpOnlyLabeled"><span data-i18n="rpOnlyLabeled"></span></label>
+          <label class="chk"><input type="checkbox" id="rpExtras"><span data-i18n="rpExtras"></span></label>
+        </div>
+        <div class="rpTableWrap"><table class="rpTable" id="rpTable"></table></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -804,7 +866,113 @@ const PureLogic = (function () {
     return evOut;
   }
 
-  return { KPI, fmtHMS, parseClock, fmtClock, videoToClock, frameCount, eventWindow, stripTimes, matchLabels,
+  // ---- Export (Phase 4) ----
+  const KPI_SHEET = { overtaking: 'Overtaking', overtaken: 'Overtaken', infrastructure: 'Infrastructure', unclear: 'Unclear' };
+  const SHEET_COLS = ['Video Name', 'Timeline', 'KPI Type', 'R/L', 'BSD Light', 'FPS', 'Frame Count'];
+  const EXTRA_COLS = ['Event #', 'Video Start (s)', 'Video End (s)', 'Duration (s)', 'Clock Start', 'Mark In (s)', 'Mark Out (s)', 'Note'];
+  const r3 = x => (Number.isFinite(x) ? Math.round(x * 1000) / 1000 : '');
+
+  // events + aligned labels (or null) -> one row per event, in the KPI sheet's terms.
+  // ctx: {videoName, recFps, anchor}
+  function buildRows(events, labels, ctx) {
+    return events.map((e, i) => {
+      const l = labels[i] || {};
+      const fc = frameCount(l.markIn, l.markOut, ctx.recFps);
+      const ck = videoToClock(e.tStart, ctx.anchor);
+      return {
+        id: e.id, videoName: ctx.videoName, timeline: fmtHMS(e.tStart), kpi: l.kpi || null,
+        kpiText: l.kpi ? KPI_SHEET[l.kpi] : '', side: e.side, bsdLight: 'On',
+        fps: Number.isFinite(l.fps) ? l.fps : '', frameCount: fc == null ? '' : fc,
+        tStart: e.tStart, tEnd: e.tEnd, duration: e.tEnd - e.tStart,
+        clock: ck == null ? '' : fmtClock(ck), markIn: l.markIn, markOut: l.markOut, note: l.note || ''
+      };
+    });
+  }
+  function sheetValues(r) { return [r.videoName, r.timeline, r.kpiText, r.side, r.bsdLight, r.fps, r.frameCount]; }
+  function extraValues(r) { return [r.id, r3(r.tStart), r3(r.tEnd), r3(r.duration), r.clock, r3(r.markIn), r3(r.markOut), r.note]; }
+
+  // Text cells that Excel would run as a formula get a leading apostrophe.
+  function safeText(v) { return typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v; }
+  function csvCell(v) {
+    const s = String(safeText(v == null ? '' : v));
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  // CSV (RFC 4180, CRLF): KPI-sheet columns first, then the extra columns.
+  function rowsToCsv(rows) {
+    const lines = [SHEET_COLS.concat(EXTRA_COLS).map(csvCell).join(',')];
+    for (const r of rows) lines.push(sheetValues(r).concat(extraValues(r)).map(csvCell).join(','));
+    return lines.join('\r\n') + '\r\n';
+  }
+  // Tab-separated rows for pasting into Excel.
+  // opts: {layout: 'compact' | 'template' (6 blank columns E–J between KPI Type and R/L), header, nameFirstOnly}
+  function rowsToTsv(rows, opts) {
+    const o = Object.assign({ layout: 'compact', header: false, nameFirstOnly: false }, opts);
+    const cell = v => String(safeText(v == null ? '' : v)).replace(/[\t\r\n]+/g, ' ');
+    const shape = vals => (o.layout === 'template' ? vals.slice(0, 3).concat(['', '', '', '', '', ''], vals.slice(3)) : vals);
+    const out = [];
+    if (o.header) out.push(shape(SHEET_COLS).map(cell).join('\t'));
+    rows.forEach((r, i) => {
+      const v = sheetValues(r);
+      if (o.nameFirstOnly && i > 0) v[0] = '';
+      out.push(shape(v).map(cell).join('\t'));
+    });
+    return out.join('\r\n');
+  }
+  // Counts per KPI (plus 'none' = not labeled) and side.
+  function countSummary(rows) {
+    const c = {};
+    for (const k of KPI.concat(['none'])) c[k] = { L: 0, R: 0 };
+    for (const r of rows) c[r.kpi || 'none'][r.side]++;
+    return c;
+  }
+
+  // ---- Auto-suggestion from camera motion (a hint only; the reviewer decides) ----
+  function grayFromRGBA(data) {
+    const g = new Float32Array(data.length >> 2);
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) g[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    return g;
+  }
+  function meanAbsDiff(a, b) {
+    const n = Math.min(a.length, b.length);
+    if (!n) return 0;
+    let s = 0;
+    for (let i = 0; i < n; i++) s += Math.abs(a[i] - b[i]);
+    return s / n;
+  }
+  // energy[i] = frame-difference energy at times[i] across the review window.
+  // Builds up and ends late (enters from behind, exits at the edge)   -> 'overtaken'  (they pass us).
+  // Strong early, then fades (shrinks toward the vanishing point)      -> 'overtaking' (we pass them).
+  // Measure: within the active span around the peak (energy >= 10 % of peak, above a baseline),
+  // asym = (late mass - early mass) / total mass, split at the span's middle.
+  function suggestDirection(energy, times, opts) {
+    const o = Object.assign({ minPeak: 2, thr: 0.25, spanFrac: 0.1 }, opts);
+    const n = energy.length;
+    if (n < 4 || times.length !== n) return { kpi: null, reason: 'few', asym: 0 };
+    const sorted = energy.slice().sort((x, y) => x - y);
+    const base = sorted[Math.floor(n * 0.25)];
+    const e = energy.map(v => Math.max(0, v - base));
+    let pk = 0;
+    for (let i = 1; i < n; i++) if (e[i] > e[pk]) pk = i;
+    const peak = e[pk];
+    if (peak < o.minPeak) return { kpi: null, reason: 'flat', asym: 0, peakT: times[pk], base, peak };
+    const lim = peak * o.spanFrac;
+    let a = pk, b = pk;
+    while (a > 0 && e[a - 1] >= lim) a--;
+    while (b < n - 1 && e[b + 1] >= lim) b++;
+    const mid = (times[a] + times[b]) / 2;
+    let early = 0, late = 0;
+    for (let i = a; i <= b; i++) {
+      if (Math.abs(times[i] - mid) < 1e-9) { early += e[i] / 2; late += e[i] / 2; }
+      else if (times[i] < mid) early += e[i]; else late += e[i];
+    }
+    const asym = early + late > 0 && b > a ? (late - early) / (late + early) : 0;
+    const kpi = asym > o.thr ? 'overtaken' : asym < -o.thr ? 'overtaking' : null;
+    return { kpi, reason: kpi ? (asym > 0 ? 'rise' : 'decay') : 'symmetric', asym, peakT: times[pk], base, peak };
+  }
+
+  return { KPI_SHEET, SHEET_COLS, EXTRA_COLS, buildRows, rowsToCsv, rowsToTsv, countSummary,
+           grayFromRGBA, meanAbsDiff, suggestDirection,
+           KPI, fmtHMS, parseClock, fmtClock, videoToClock, frameCount, eventWindow, stripTimes, matchLabels,
            DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
            rectFromPoints, clampNormRect, moveRect, normToPx, fmtVideoTime, snapFps, estimateFps,
            sessionKey, sessionKeyMismatch,
@@ -846,7 +1014,6 @@ const I18N = {
     hueLo: 'Hue ≤ (°)', hueHi: 'Hue ≥ (°)', sMin: 'Saturation ≥', vMin: 'Value ≥', resetDefaults: 'Reset defaults',
     shortcutsTitle: 'Shortcuts',
     shortcutsBody: '<kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>[</kbd> <kbd>]</kbd> ±1 s · <kbd>Esc</kbd> cancel drawing / scan',
-    reportPlaceholder: 'Events and the exportable report appear here after scanning (Phase 2–4).',
     msgNeedVideo: 'Open a video first.', msgNeedRoi: 'Draw the {roi} ROI first.',
     msgOnLeOff: 'The ON sample ({on}) must be higher than the OFF sample ({off}). Check the frames or the ROI.',
     msgThrSet: '{lamp}: threshold set to {thr}',
@@ -902,6 +1069,25 @@ const I18N = {
     rvHead: '<b>Event #{id}</b> · {side} · {cam} · {t0} → {t1} ({d} s)', rvClockAt: 'clock {c}',
     rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> clear KPI · <kbd>←</kbd> <kbd>→</kbd> previous / next event · <kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>I</kbd> <kbd>O</kbd> Mark In / Out · <kbd>F</kbd> full frame · <kbd>Esc</kbd> leave text field',
     rvLoading: 'loading…', rvNoCamRoi: 'Draw {roi} in the Edit view; showing the full frame.',
+    rpTitle: 'Summary', rpMeta: '{name} · {n} events · {done} labeled', rpExport: 'Export', rpDocTitle: 'BSD event report',
+    rpCsv: 'Export CSV', rpHtml: 'HTML report', rpCopy: 'Copy rows for Excel',
+    rpLayoutCompact: '7 columns side by side', rpLayoutTemplate: 'Template columns B–N (E–J left empty)',
+    rpHeader: 'Include header row', rpNameFirst: 'Video name on first row only',
+    rpTemplateHint: 'Template layout leaves E–J empty so R/L lands in column K when you paste at column B. Pasting overwrites cells in E–J, hidden ones included.',
+    rpTable: 'Results', rpOnlyLabeled: 'Only labeled events', rpExtras: 'Show event #, clock, duration and note',
+    rpCopied: '{n} rows copied. Paste into Excel.', rpCopyFail: 'Could not copy automatically. The rows are selected in the box below: press Ctrl+C.',
+    rpCsvSaved: 'CSV saved ({n} rows).', rpNoRows: 'No events to export. Scan and review first.',
+    rpBuilding: 'Building report: thumbnail {i} / {n}', rpSaved: 'HTML report saved ({n} events).', rpCancelled: 'Report cancelled.',
+    rpCountsKpi: 'KPI type', rpTotal: 'Total', kpi_none: 'Not labeled', rpLegendL: 'L · RL camera', rpLegendR: 'R · RR camera',
+    rpChartAria: 'Event counts by KPI type and side',
+    colClock: 'Clock', colDur: 'Duration (s)', colNote: 'Note', colThumb: 'Camera',
+    rpGenerated: 'Generated', rpVideo: 'Video', rpSize: 'Size', rpDuration: 'Duration', rpRecFps: 'Recording fps',
+    rpThresholds: 'Lamp thresholds', rpGate: 'Only while BSD Active', rpAnchor: 'Clock anchor', rpOn: 'on', rpOff: 'off',
+    rvSugTitle: 'Suggestion (auto)', rvSugShow: 'Show auto-suggestion',
+    rvSug_rise: '{kpi}: motion builds up, then drops off quickly', rvSug_decay: '{kpi}: motion is strong early, then fades slowly',
+    rvSug_flat: 'No suggestion: little motion in the camera view', rvSug_symmetric: 'No suggestion: motion builds and fades evenly', rvSug_few: 'No suggestion',
+    rvSugNote: 'Based on frame differences in the lower half of the camera view. A hint only: you decide.',
+    rvSugWait: 'Suggestion appears when the filmstrip has loaded…', rvSugFull: 'Turn off Full frame to get a suggestion.',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -931,7 +1117,6 @@ const I18N = {
     hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '饱和度 ≥', vMin: '亮度 ≥', resetDefaults: '恢复默认',
     shortcutsTitle: '快捷键',
     shortcutsBody: '<kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框选 / 扫描',
-    reportPlaceholder: '扫描后，事件列表与可导出报告将显示在此（第 2–4 阶段）。',
     msgNeedVideo: '请先打开视频。', msgNeedRoi: '请先框选 {roi}。',
     msgOnLeOff: '“亮”采样值（{on}）必须大于“灭”采样值（{off}）。请检查所选帧或 ROI。',
     msgThrSet: '{lamp}：阈值设为 {thr}',
@@ -987,6 +1172,25 @@ const I18N = {
     rvHead: '<b>事件 #{id}</b> · {side} · {cam} · {t0} → {t1}（{d} 秒）', rvClockAt: '时钟 {c}',
     rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> 清除 KPI · <kbd>←</kbd> <kbd>→</kbd> 上一个 / 下一个事件 · <kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>I</kbd> <kbd>O</kbd> 标记进入 / 离开 · <kbd>F</kbd> 整帧 · <kbd>Esc</kbd> 离开输入框',
     rvLoading: '载入中…', rvNoCamRoi: '请在编辑视图中框选 {roi}；当前显示整帧。',
+    rpTitle: '汇总', rpMeta: '{name} · {n} 个事件 · 已标注 {done}', rpExport: '导出', rpDocTitle: 'BSD 事件报告',
+    rpCsv: '导出 CSV', rpHtml: 'HTML 报告', rpCopy: '复制行到 Excel',
+    rpLayoutCompact: '7 列连续', rpLayoutTemplate: '模板列 B–N（E–J 留空）',
+    rpHeader: '包含表头行', rpNameFirst: '视频名称仅填第一行',
+    rpTemplateHint: '模板格式会让 E–J 留空，从 B 列粘贴时 R/L 落在 K 列。粘贴会覆盖 E–J 中的单元格（包括隐藏列）。',
+    rpTable: '结果', rpOnlyLabeled: '仅已标注事件', rpExtras: '显示事件编号、时钟、时长和备注',
+    rpCopied: '已复制 {n} 行，请粘贴到 Excel。', rpCopyFail: '无法自动复制。已在下方框中选中各行：请按 Ctrl+C。',
+    rpCsvSaved: '已保存 CSV（{n} 行）。', rpNoRows: '没有可导出的事件。请先扫描并审阅。',
+    rpBuilding: '正在生成报告：缩略图 {i} / {n}', rpSaved: '已保存 HTML 报告（{n} 个事件）。', rpCancelled: '已取消生成报告。',
+    rpCountsKpi: 'KPI 类型', rpTotal: '合计', kpi_none: '未标注', rpLegendL: '左 · RL 摄像头', rpLegendR: '右 · RR 摄像头',
+    rpChartAria: '按 KPI 类型和左右侧统计的事件数',
+    colClock: '时钟', colDur: '时长（秒）', colNote: '备注', colThumb: '摄像头',
+    rpGenerated: '生成时间', rpVideo: '视频', rpSize: '大小', rpDuration: '时长', rpRecFps: '录屏帧率',
+    rpThresholds: '报警灯阈值', rpGate: '仅在 BSD 激活时', rpAnchor: '时钟锚点', rpOn: '开', rpOff: '关',
+    rvSugTitle: '建议（自动）', rvSugShow: '显示自动建议',
+    rvSug_rise: '{kpi}：画面运动逐渐增强，然后迅速消失', rvSug_decay: '{kpi}：画面运动一开始就很强，然后缓慢减弱',
+    rvSug_flat: '无建议：摄像头画面运动很少', rvSug_symmetric: '无建议：运动增强与减弱程度相当', rvSug_few: '无建议',
+    rvSugNote: '依据摄像头画面下半部的帧差。仅供参考：由您决定。',
+    rvSugWait: '缩略图载入后显示建议…', rvSugFull: '关闭“整帧”后才会给出建议。',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -1016,7 +1220,6 @@ const I18N = {
     hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '飽和度 ≥', vMin: '明度 ≥', resetDefaults: '恢復預設',
     shortcutsTitle: '快速鍵',
     shortcutsBody: '<kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框選 / 掃描',
-    reportPlaceholder: '掃描後，事件清單與可匯出報告將顯示於此（第 2–4 階段）。',
     msgNeedVideo: '請先開啟影片。', msgNeedRoi: '請先框選 {roi}。',
     msgOnLeOff: '「亮」取樣值（{on}）必須大於「滅」取樣值（{off}）。請檢查所選影格或 ROI。',
     msgThrSet: '{lamp}：門檻設為 {thr}',
@@ -1072,6 +1275,25 @@ const I18N = {
     rvHead: '<b>事件 #{id}</b> · {side} · {cam} · {t0} → {t1}（{d} 秒）', rvClockAt: '時鐘 {c}',
     rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> 清除 KPI · <kbd>←</kbd> <kbd>→</kbd> 上一個 / 下一個事件 · <kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>I</kbd> <kbd>O</kbd> 標記進入 / 離開 · <kbd>F</kbd> 整格 · <kbd>Esc</kbd> 離開輸入框',
     rvLoading: '載入中…', rvNoCamRoi: '請在編輯檢視中框選 {roi}；目前顯示整格。',
+    rpTitle: '彙總', rpMeta: '{name} · {n} 個事件 · 已標註 {done}', rpExport: '匯出', rpDocTitle: 'BSD 事件報告',
+    rpCsv: '匯出 CSV', rpHtml: 'HTML 報告', rpCopy: '複製列到 Excel',
+    rpLayoutCompact: '7 欄連續', rpLayoutTemplate: '範本欄 B–N（E–J 留空）',
+    rpHeader: '包含標題列', rpNameFirst: '影片名稱僅填第一列',
+    rpTemplateHint: '範本格式會讓 E–J 留空，從 B 欄貼上時 R/L 落在 K 欄。貼上會覆寫 E–J 中的儲存格（包括隱藏欄）。',
+    rpTable: '結果', rpOnlyLabeled: '僅已標註事件', rpExtras: '顯示事件編號、時鐘、時長和備註',
+    rpCopied: '已複製 {n} 列，請貼到 Excel。', rpCopyFail: '無法自動複製。已在下方框中選取各列：請按 Ctrl+C。',
+    rpCsvSaved: '已儲存 CSV（{n} 列）。', rpNoRows: '沒有可匯出的事件。請先掃描並審閱。',
+    rpBuilding: '正在產生報告：縮圖 {i} / {n}', rpSaved: '已儲存 HTML 報告（{n} 個事件）。', rpCancelled: '已取消產生報告。',
+    rpCountsKpi: 'KPI 類型', rpTotal: '合計', kpi_none: '未標註', rpLegendL: '左 · RL 攝影機', rpLegendR: '右 · RR 攝影機',
+    rpChartAria: '依 KPI 類型和左右側統計的事件數',
+    colClock: '時鐘', colDur: '時長（秒）', colNote: '備註', colThumb: '攝影機',
+    rpGenerated: '產生時間', rpVideo: '影片', rpSize: '大小', rpDuration: '長度', rpRecFps: '錄影影格率',
+    rpThresholds: '警示燈門檻', rpGate: '僅在 BSD 啟用時', rpAnchor: '時鐘錨點', rpOn: '開', rpOff: '關',
+    rvSugTitle: '建議（自動）', rvSugShow: '顯示自動建議',
+    rvSug_rise: '{kpi}：畫面運動逐漸增強，然後迅速消失', rvSug_decay: '{kpi}：畫面運動一開始就很強，然後緩慢減弱',
+    rvSug_flat: '無建議：攝影機畫面運動很少', rvSug_symmetric: '無建議：運動增強與減弱程度相當', rvSug_few: '無建議',
+    rvSugNote: '依據攝影機畫面下半部的影格差。僅供參考：由您決定。',
+    rvSugWait: '縮圖載入後顯示建議…', rvSugFull: '關閉「整格」後才會給出建議。',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -1107,7 +1329,8 @@ function defaultState() {
     green: { ...PL.DEFAULT_GREEN },
     lamps: { L: { thr: 0.2, on: null, off: null }, R: { thr: 0.2, on: null, off: null }, A: { thr: 0.2, on: null, off: null } },
     scan: { mode: 'play', seekFps: 5, playRate: 4, gate: true, mergeGap: 0.5, minDuration: 0.3 },
-    review: { pre: 4, post: 2, speed: 1, autoAdvance: true, filter: 'all', lastFps: { L: null, R: null } },
+    review: { pre: 4, post: 2, speed: 1, autoAdvance: true, suggest: true, filter: 'all', lastFps: { L: null, R: null } },
+    report: { layout: 'compact', header: false, nameFirst: false, onlyLabeled: false, extras: true },
     videos: {}    // per video ("name|size"): { anchor: {video, clock} | null, labels: [...] }
   };
 }
@@ -1144,8 +1367,14 @@ function sanitizeSettings(src, base) {
     if (Number.isFinite(r.post) && r.post >= 0 && r.post <= 30) d.post = r.post;
     if ([0.25, 0.5, 1, 2, 4].includes(r.speed)) d.speed = r.speed;
     if (typeof r.autoAdvance === 'boolean') d.autoAdvance = r.autoAdvance;
+    if (typeof r.suggest === 'boolean') d.suggest = r.suggest;
     if (['all', 'todo', 'L', 'R'].includes(r.filter)) d.filter = r.filter;
     if (r.lastFps) for (const k of ['L', 'R']) d.lastFps[k] = Number.isFinite(r.lastFps[k]) ? r.lastFps[k] : null;
+  }
+  if (src.report && typeof src.report === 'object') {
+    const r = src.report, d = s.report;
+    if (r.layout === 'compact' || r.layout === 'template') d.layout = r.layout;
+    for (const k of ['header', 'nameFirst', 'onlyLabeled', 'extras']) if (typeof r[k] === 'boolean') d[k] = r[k];
   }
   if (src.videos && typeof src.videos === 'object') {
     for (const [k, v] of Object.entries(src.videos)) { const r = sanitizeReview(v); if (r) s.videos[k] = r; }
@@ -1214,6 +1443,7 @@ function applyI18n() {
   renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps(); renderEvents(); renderScanInfo(); drawChart();
   renderKpiButtons(); renderReviewList(); renderReviewPanel(); layoutCrop(); rvTick();
   document.querySelectorAll('#rvStrip .th').forEach(th => { th.dataset.loading = t('rvLoading'); });
+  renderReport();
 }
 
 let toastTimer = null;
@@ -1786,6 +2016,7 @@ function extractNow() {
     if (!V.events.some(e => e.id === RV.sel)) RV.sel = null;
     renderReviewList(); layoutCrop(); renderReviewPanel();
   }
+  if (S.view === 'report') renderReport();
 }
 function renderEvents() {
   const box = $('evList'), sum = $('evSummary');
@@ -2155,6 +2386,18 @@ async function seekEl(el, tSec) {
     el.currentTime = tSec;
   });
 }
+// The hidden capture video is shared by the filmstrip, its prefetch and the HTML report:
+// queue every seek+capture so two users never seek it at the same time.
+let fvQueue = Promise.resolve();
+function fvGrab(tSec, fn, isStale) {
+  const run = fvQueue.then(async () => {
+    if (isStale && isStale()) return null;
+    await seekEl(fvid, tSec);
+    return fn();
+  });
+  fvQueue = run.catch(() => {});
+  return run;
+}
 // Copy an ROI of the current frame of `el` into a new canvas (upscaled up to 3x, max width maxW).
 function captureRoi(el, roi, maxW) {
   if (!roi || !el.videoWidth) return null;
@@ -2211,24 +2454,28 @@ async function buildStrip(ev, paint) {
   if (paint) paintEntry(ev, entry);
   try {
     if (!entry.ro) {
-      await seekEl(fvid, ev.tStart);
-      if (tok !== RV.token) return;
-      const ro = {};
-      for (const k of readoutKeys(ev.side)) ro[k] = captureRoi(fvid, S.rois[k], 300);
-      entry.fps = captureRoi(fvid, S.rois[FPS_ROI[ev.side]], 300);
-      entry.ro = ro;
-      if (paint) paintEntry(ev, { ro, fps: entry.fps });
+      const stale = () => tok !== RV.token;
+      const got = await fvGrab(ev.tStart, () => {
+        const ro = {};
+        for (const k of readoutKeys(ev.side)) ro[k] = captureRoi(fvid, S.rois[k], 300);
+        return { ro, fps: captureRoi(fvid, S.rois[FPS_ROI[ev.side]], 300) };
+      }, stale);
+      if (stale() || !got) return;
+      entry.ro = got.ro; entry.fps = got.fps;
+      if (paint) paintEntry(ev, { ro: entry.ro, fps: entry.fps });
     }
     const times = PL.stripTimes(win[0], win[1], STRIP_N), roi = camRoiFor(ev);
     for (let i = 0; i < times.length; i++) {
       if (entry.strip[i]) continue;
-      await seekEl(fvid, times[i]);
-      if (tok !== RV.token) return;
-      entry.strip[i] = captureRoi(fvid, roi, 240);
+      const cv = await fvGrab(times[i], () => captureRoi(fvid, roi, 240), () => tok !== RV.token);
+      if (tok !== RV.token || !cv) return;
+      entry.strip[i] = cv;
       if (paint) paintEntry(ev, { strip: entry.strip.map((c, j) => (j === i ? c : null)) });
     }
   } catch (e) { return; }
   entry.complete = true;
+  if (!RV.full && !entry.suggest) entry.suggest = suggestFromStrip(entry.strip, PL.stripTimes(win[0], win[1], STRIP_N));
+  if (paint && tok === RV.token) renderSuggestion();
   // prefetch the next event while the user looks at this one
   if (paint && tok === RV.token) {
     const i = V.events.indexOf(ev), nx = V.events[i + 1];
@@ -2236,6 +2483,39 @@ async function buildStrip(ev, paint) {
     if (nx && !(ne && ne.complete)) buildStrip(nx, false);
   }
 }
+// ---------- auto-suggestion (hint only) ----------
+// Frame-difference energy of the lower half of the camera view between consecutive filmstrip frames.
+function suggestFromStrip(strip, times) {
+  if (strip.length < 4 || strip.some(c => !c)) return null;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 24;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  const g = strip.map(cv => { x.drawImage(cv, 0, cv.height / 2, cv.width, cv.height / 2, 0, 0, 64, 24); return PL.grayFromRGBA(x.getImageData(0, 0, 64, 24).data); });
+  const E = [], T = [];
+  for (let i = 0; i + 1 < g.length; i++) { E.push(PL.meanAbsDiff(g[i], g[i + 1])); T.push((times[i] + times[i + 1]) / 2); }
+  return Object.assign(PL.suggestDirection(E, T), { energy: E });
+}
+function sparkline(cv, vals) {
+  const c = cv.getContext('2d'), W = cv.width, H = cv.height, max = Math.max(1e-6, ...vals);
+  c.clearRect(0, 0, W, H);
+  c.strokeStyle = '#2a78d6'; c.lineWidth = 3; c.lineJoin = 'round'; c.beginPath();
+  vals.forEach((v, i) => { const px = 3 + i / (vals.length - 1) * (W - 6), py = H - 4 - v / max * (H - 8); i ? c.lineTo(px, py) : c.moveTo(px, py); });
+  c.stroke();
+}
+function renderSuggestion() {
+  const box = $('rvSuggest'), ev = selEvent();
+  $('kpiBtns').querySelectorAll('.kpiBtn').forEach(b => b.classList.remove('sug'));
+  $('rvSugShow').checked = S.review.suggest;
+  if (!S.review.suggest || !ev) { box.innerHTML = ''; return; }
+  if (RV.full) { box.innerHTML = `<div class="hint" style="margin:0">${esc(t('rvSugFull'))}</div>`; return; }
+  const e = RV.cache.get(stripKey(ev));
+  if (!e || !e.complete || !e.suggest) { box.innerHTML = `<div class="hint" style="margin:0">${esc(t('rvSugWait'))}</div>`; return; }
+  const sg = e.suggest;
+  const msg = t('rvSug_' + sg.reason, { kpi: sg.kpi ? t('kpi_' + sg.kpi) : '' });
+  box.innerHTML = `<canvas width="192" height="52" title="${esc(t('rvSugNote'))}"></canvas><div><b>${esc(t('rvSugTitle'))}</b><div>${esc(msg)}</div><div class="hint">${esc(t('rvSugNote'))}</div></div>`;
+  if (sg.energy) sparkline(box.querySelector('canvas'), sg.energy);
+  if (sg.kpi) { const b = $('kpiBtns').querySelector(`[data-kpi="${sg.kpi}"]`); if (b) b.classList.add('sug'); }
+}
+
 $('rvStrip').addEventListener('click', e => {
   const th = e.target.closest('.th'); if (!th) return;
   rvid.pause(); rvid.currentTime = +th.dataset.t;
@@ -2281,7 +2561,7 @@ function renderReviewPanel() {
   $('rvFpsTag').textContent = saved ? t('rvSaved') : fi.value !== '' ? t('rvSuggested') : '';
   $('rvFpsGrab').disabled = !S.rois[fpsRoi];
   if (document.activeElement !== $('rvNote')) $('rvNote').value = l ? l.note : '';
-  renderAnchor();
+  renderAnchor(); renderSuggestion();
 }
 function commitFps(lab, side) {
   const v = parseFloat($('rvFps').value);
@@ -2320,6 +2600,209 @@ function applyAnchorInputs() {
 
 
 /* =====================================================================
+   REPORT (results table, summary chart, CSV / Excel copy / HTML report)
+   ===================================================================== */
+const RP = { running: false, cancel: false };
+
+function baseName() { return V.file ? V.file.name.replace(/\.[^.]+$/, '') : ''; }
+function allRows() {
+  remapLabels();
+  return PL.buildRows(V.events, V.events.map(labelOf), { videoName: baseName(), recFps: S.fps, anchor: anchor() });
+}
+function exportRows() { const r = allRows(); return S.report.onlyLabeled ? r.filter(x => x.kpi) : r; }
+
+// Grouped horizontal bars: KPI type x side. One axis, values at bar ends, <title> tooltips.
+function summarySvg(counts) {
+  const cats = PL.KPI.concat(['none']);
+  const max = Math.max(1, ...cats.map(k => Math.max(counts[k].L, counts[k].R)));
+  const step = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].find(s => max / s <= 5) || 1000;
+  const axisMax = Math.ceil(max / step) * step;
+  const W = 560, labelW = 150, valW = 36, top = 34, rowH = 44, barH = 14, gap = 2;
+  const plotW = W - labelW - valW, H = top + cats.length * rowH + 20;
+  const X = v => labelW + v / axisMax * plotW;
+  const bar = (x0, y, w, h) => {      // flat at the baseline, 4 px rounded data end
+    if (w <= 0) return '';
+    const r = Math.min(4, w / 2, h / 2);
+    return `M${x0},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${h - 2 * r}a${r},${r} 0 0 1 -${r},${r}h-${w - r}z`;
+  };
+  let o = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('rpChartAria'))}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI',Roboto,'Noto Sans TC','Noto Sans SC',sans-serif">`;
+  // legend
+  o += `<rect x="${labelW}" y="6" width="12" height="12" rx="3" style="fill:var(--series-1)"/><text x="${labelW + 18}" y="16" font-size="12" style="fill:var(--text-secondary)">${esc(t('rpLegendL'))}</text>`;
+  o += `<rect x="${labelW + 150}" y="6" width="12" height="12" rx="3" style="fill:var(--series-2)"/><text x="${labelW + 168}" y="16" font-size="12" style="fill:var(--text-secondary)">${esc(t('rpLegendR'))}</text>`;
+  // grid + ticks
+  for (let v = 0; v <= axisMax; v += step) {
+    const x = X(v).toFixed(1);
+    o += `<line x1="${x}" x2="${x}" y1="${top - 4}" y2="${H - 18}" style="stroke:var(--grid)" stroke-width="1"/>`;
+    o += `<text x="${x}" y="${H - 4}" font-size="10.5" text-anchor="middle" style="fill:var(--text-secondary)">${v}</text>`;
+  }
+  cats.forEach((k, i) => {
+    const y0 = top + i * rowH + 6;
+    o += `<text x="${labelW - 10}" y="${y0 + barH + 5}" font-size="12.5" text-anchor="end" style="fill:var(--text-primary)">${esc(t('kpi_' + k))}</text>`;
+    [['L', 'var(--series-1)', 0], ['R', 'var(--series-2)', 1]].forEach(([side, col, j]) => {
+      const v = counts[k][side], y = y0 + j * (barH + gap), w = X(v) - X(0);
+      o += `<g><title>${esc(t('kpi_' + k))} · ${side}: ${v}</title>`;
+      o += `<rect x="${labelW}" y="${y}" width="${plotW + valW}" height="${barH}" fill="transparent"/>`;
+      if (v > 0) o += `<path d="${bar(X(0), y, w, barH)}" style="fill:${col}"/>`;
+      if (v > 0) o += `<text x="${(X(v) + 5).toFixed(1)}" y="${y + barH - 3}" font-size="11" style="fill:var(--text-secondary)">${v}</text>`;
+      o += '</g>';
+    });
+  });
+  return o + '</svg>';
+}
+function countsTable(counts) {
+  const cats = PL.KPI.concat(['none']);
+  let tl = 0, tr = 0;
+  const rows = cats.map(k => { tl += counts[k].L; tr += counts[k].R;
+    return `<tr><td>${esc(t('kpi_' + k))}</td><td class="num">${counts[k].L}</td><td class="num">${counts[k].R}</td><td class="num">${counts[k].L + counts[k].R}</td></tr>`; }).join('');
+  return `<table class="rpTable"><thead><tr><th>${esc(t('rpCountsKpi'))}</th><th>L</th><th>R</th><th>${esc(t('rpTotal'))}</th></tr></thead>` +
+    `<tbody>${rows}</tbody><tfoot><tr><td>${esc(t('rpTotal'))}</td><td class="num">${tl}</td><td class="num">${tr}</td><td class="num">${tl + tr}</td></tr></tfoot></table>`;
+}
+function tableHead(extras, thumb) {
+  const cols = PL.SHEET_COLS.slice();
+  if (extras) cols.push('#', t('colClock'), t('colDur'), t('colNote'));
+  if (thumb) cols.push(t('colThumb'));
+  return `<thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>`;
+}
+function tableRow(r, extras, thumbUrl) {
+  let h = `<td>${esc(r.videoName)}</td><td class="num">${r.timeline}</td><td>${esc(r.kpiText)}</td><td>${r.side}</td><td>${r.bsdLight}</td>` +
+    `<td class="num">${r.fps}</td><td class="num">${r.frameCount}</td>`;
+  if (extras) h += `<td class="num">${r.id}</td><td class="num">${r.clock}</td><td class="num">${r.duration.toFixed(2)}</td><td class="note">${esc(r.note)}</td>`;
+  if (thumbUrl !== undefined) h += `<td>${thumbUrl ? `<img src="${thumbUrl}" alt="" width="320">` : ''}</td>`;
+  return h;
+}
+
+function renderReport() {
+  if (S.view !== 'report') return;
+  $('rpLayout').value = S.report.layout; $('rpHeader').checked = S.report.header; $('rpNameFirst').checked = S.report.nameFirst;
+  $('rpOnlyLabeled').checked = S.report.onlyLabeled; $('rpExtras').checked = S.report.extras;
+  const all = allRows(), rows = S.report.onlyLabeled ? all.filter(r => r.kpi) : all;
+  const counts = PL.countSummary(all);
+  $('rpMeta').textContent = V.file ? t('rpMeta', { name: baseName(), n: all.length, done: all.filter(r => r.kpi).length }) : t('msgNeedVideo');
+  $('rpChart').innerHTML = all.length ? summarySvg(counts) : `<p class="hint">${esc(t('rpNoRows'))}</p>`;
+  $('rpCounts').innerHTML = all.length ? countsTable(counts) : '';
+  $('rpTable').innerHTML = tableHead(S.report.extras, false) +
+    `<tbody>${rows.map(r => `<tr data-id="${r.id}">${tableRow(r, S.report.extras)}</tr>`).join('')}</tbody>`;
+}
+
+function exportCsv() {
+  const rows = exportRows();
+  if (!rows.length) return toast(t('rpNoRows'), true);
+  downloadText(baseName() + '_bsd_events.csv', '﻿' + PL.rowsToCsv(rows), 'text/csv;charset=utf-8');
+  toast(t('rpCsvSaved', { n: rows.length }));
+}
+async function copyRows() {
+  const rows = exportRows();
+  if (!rows.length) return toast(t('rpNoRows'), true);
+  const tsv = PL.rowsToTsv(rows, { layout: S.report.layout, header: S.report.header, nameFirstOnly: S.report.nameFirst });
+  const box = $('rpCopyBox');
+  try {
+    await navigator.clipboard.writeText(tsv);
+    box.hidden = true;
+    toast(t('rpCopied', { n: rows.length }));
+  } catch (e) {
+    box.hidden = false; box.value = tsv; box.focus(); box.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (x) { ok = false; }
+    toast(ok ? t('rpCopied', { n: rows.length }) : t('rpCopyFail'), !ok);
+  }
+}
+
+// One camera thumbnail per event: middle of Mark In/Out if marked, else middle of the event.
+async function eventThumb(ev, lab) {
+  const tt = lab && Number.isFinite(lab.markIn) && Number.isFinite(lab.markOut) ? (lab.markIn + lab.markOut) / 2 : (ev.tStart + ev.tEnd) / 2;
+  const cv = await fvGrab(tt, () => captureRoi(fvid, S.rois[CAM_ROI[ev.side]] || FULL_ROI, 320));
+  if (!cv) return '';
+  let out = cv;
+  if (cv.width !== 320) {          // normalise to 320 px wide
+    out = document.createElement('canvas');
+    out.width = 320; out.height = Math.max(1, Math.round(cv.height * 320 / cv.width));
+    const c = out.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv, 0, 0, out.width, out.height);
+  }
+  return out.toDataURL('image/jpeg', 0.8);
+}
+
+async function exportHtmlReport() {
+  if (RP.running) return;
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  const rows = exportRows();
+  if (!rows.length) return toast(t('rpNoRows'), true);
+  RP.running = true; RP.cancel = false;
+  RV.token++;                                  // stop any filmstrip prefetch
+  $('rpProgRow').hidden = false; $('rpHtml').disabled = true;
+  const thumbs = [];
+  try {
+    for (let i = 0; i < rows.length && !RP.cancel; i++) {
+      $('rpInfo').textContent = t('rpBuilding', { i: i + 1, n: rows.length });
+      $('rpBar').style.width = (i / rows.length * 100).toFixed(1) + '%';
+      const ev = V.events.find(e => e.id === rows[i].id);
+      thumbs.push(ev ? await eventThumb(ev, labelOf(ev)) : '');
+    }
+  } catch (e) { toast(t('scanFailed', { why: e.message }), true); RP.cancel = true; }
+  const cancelled = RP.cancel;
+  RP.running = false; $('rpProgRow').hidden = true; $('rpHtml').disabled = false;
+  if (cancelled) return toast(t('rpCancelled'), true);
+  downloadText(baseName() + '_bsd_report.html', buildReportHtml(rows, thumbs), 'text/html;charset=utf-8');
+  toast(t('rpSaved', { n: rows.length }));
+}
+
+function buildReportHtml(rows, thumbs) {
+  const all = allRows(), counts = PL.countSummary(all), a = anchor();
+  const gb = V.file.size / 1073741824;
+  const size = gb >= 1 ? gb.toFixed(2) + ' GB' : (V.file.size / 1048576).toFixed(0) + ' MB';
+  const meta = [
+    [t('rpVideo'), esc(V.file.name)], [t('rpSize'), size], [t('rpDuration'), PL.fmtVideoTime(vid.duration)],
+    [t('rpRecFps'), S.fps], [t('rpThresholds'), `L ${S.lamps.L.thr.toFixed(3)} · R ${S.lamps.R.thr.toFixed(3)} · ${esc(t('lampA'))} ${S.lamps.A.thr.toFixed(3)}`],
+    [t('rpGate'), S.scan.gate ? t('rpOn') : t('rpOff')],
+    [t('mergeGap'), S.scan.mergeGap], [t('minDuration'), S.scan.minDuration],
+    [t('rpAnchor'), a ? t('rvAnchorSet', { v: PL.fmtVideoTime(a.video), c: PL.fmtClock(a.clock) }) : t('rvAnchorNone')],
+    [t('rpGenerated'), new Date().toLocaleString()]
+  ].map(([k, v]) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`).join('');
+  const lang = S.lang === 'en' ? 'en' : S.lang === 'zhs' ? 'zh-Hans' : 'zh-Hant';
+  const body = rows.map((r, i) => `<tr>${tableRow(r, true, thumbs[i] || '')}</tr>`).join('');
+  return `<!DOCTYPE html>
+<html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(t('rpDocTitle'))} – ${esc(baseName())}</title>
+<style>
+:root{color-scheme:light;--bg:#ffffff;--ink:#1a1a1a;--muted:#5d6271;--line:#e1e4ec;--head:#eef1f7;}
+.viz-root{--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--grid:#e6e5e0;--series-1:#2a78d6;--series-2:#eb6834;}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){color-scheme:dark;--bg:#151821;--ink:#e8eaf0;--muted:#9aa2b5;--line:#2c3243;--head:#202533;}
+  :root:where(:not([data-theme="light"])) .viz-root{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#34342f;--series-1:#3987e5;--series-2:#d95926;}
+}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#151821;--ink:#e8eaf0;--muted:#9aa2b5;--line:#2c3243;--head:#202533;}
+:root[data-theme="dark"] .viz-root{--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--grid:#34342f;--series-1:#3987e5;--series-2:#d95926;}
+*{box-sizing:border-box;}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--ink);font:13px/1.45 -apple-system,"Segoe UI",Roboto,"Noto Sans TC","Noto Sans SC",sans-serif;}
+main{max-width:1200px;margin:0 auto;}
+h1{font-size:20px;margin:0 0 4px;} h2{font-size:15px;margin:26px 0 8px;}
+.sub{color:var(--muted);margin:0 0 14px;}
+table{border-collapse:collapse;}
+th,td{padding:5px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;}
+thead th{background:var(--head);white-space:nowrap;}
+.meta th{font-weight:600;color:var(--muted);white-space:nowrap;}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,1fr);gap:24px;align-items:start;}
+@media (max-width:800px){.grid{grid-template-columns:1fr;}}
+.viz-root svg{display:block;width:100%;height:auto;}
+.num{text-align:right;font-family:ui-monospace,Consolas,monospace;white-space:nowrap;}
+.note{min-width:160px;}
+.events{width:100%;}
+.wrap{overflow-x:auto;}
+img{display:block;border-radius:4px;max-width:320px;height:auto;}
+tfoot td{font-weight:700;}
+@media print{body{padding:0;} tr{break-inside:avoid;}}
+</style></head><body><main>
+<h1>${esc(t('rpDocTitle'))}</h1>
+<p class="sub">${esc(t('rpMeta', { name: baseName(), n: all.length, done: all.filter(r => r.kpi).length }))}</p>
+<table class="meta">${meta}</table>
+<h2>${esc(t('rpTitle'))}</h2>
+<div class="grid"><div class="viz-root">${summarySvg(counts)}</div><div>${countsTable(counts)}</div></div>
+<h2>${esc(t('rpTable'))} (${rows.length})</h2>
+<div class="wrap"><table class="events">${tableHead(true, true)}<tbody>${body}</tbody></table></div>
+</main></body></html>`;
+}
+
+
+/* =====================================================================
    SESSION JSON
    ===================================================================== */
 function downloadText(name, text, mime) {
@@ -2332,7 +2815,7 @@ function buildSession() {
   return {
     app: 'BSD-Event-Analyzer', schema: 1, savedAt: new Date().toISOString(),
     video: V.meta || null,
-    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan, review: S.review },
+    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan, review: S.review, report: S.report },
     samples: PL.packSamples(V.samples),
     events: V.events,
     review: reviewStore(false)
@@ -2388,6 +2871,7 @@ function setView(v) {
   if (v !== 'edit') vid.pause();
   if (v === 'edit') requestAnimationFrame(() => { layoutStage(); drawChart(); });
   if (v === 'review') requestAnimationFrame(rvEnter);
+  if (v === 'report') renderReport();
   scheduleSave();
 }
 function syncRedInputs() {
@@ -2537,6 +3021,23 @@ $('rvAnchorClock').addEventListener('change', applyAnchorInputs);
 $('rvAnchorClear').onclick = () => { const r = reviewStore(false); if (r) { r.anchor = null; scheduleSave(); } renderAnchor(); renderReviewList(); renderReviewPanel(); renderEvents(); };
 $('rvAnchorCap').classList.add('empty'); $('rvFpsCap').classList.add('empty');
 if ('requestVideoFrameCallback' in rvid) rvid.requestVideoFrameCallback(rvOnFrame);
+$('rvSugShow').onchange = e => { S.review.suggest = e.target.checked; scheduleSave(); renderSuggestion(); };
+
+// report controls
+$('rpCsv').onclick = exportCsv;
+$('rpCopy').onclick = copyRows;
+$('rpHtml').onclick = exportHtmlReport;
+$('rpCancel').onclick = () => { RP.cancel = true; };
+$('rpSession').onclick = saveSession;
+$('rpLayout').onchange = e => { S.report.layout = e.target.value; scheduleSave(); };
+for (const [id, k] of [['rpHeader', 'header'], ['rpNameFirst', 'nameFirst'], ['rpOnlyLabeled', 'onlyLabeled'], ['rpExtras', 'extras']])
+  $(id).onchange = e => { S.report[k] = e.target.checked; scheduleSave(); renderReport(); };
+$('rpTable').addEventListener('click', e => {
+  const tr = e.target.closest('tbody tr'); if (!tr) return;
+  const id = +tr.dataset.id;
+  setView('review');
+  requestAnimationFrame(() => requestAnimationFrame(() => rvSelect(id)));
+});
 
 syncRedInputs();
 syncScanInputs();

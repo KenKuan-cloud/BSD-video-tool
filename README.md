@@ -6,7 +6,12 @@ Single-file offline tool (`bsd_event_analyzer.html`) for finding BSD warning-lam
 - [x] Phase 1: load/player, ROI tool, lamp calibration, live lamp score
 - [x] Phase 2: `BSD_ACTIVE` ROI (green lamp) + green classifier; scan (seek + play modes) that only counts time while BSD Active is on; event extraction; strip chart with L / R / BSD Active tracks
 - [x] Phase 3: review UI, KPI hotkeys, Mark In/Out frame count, FPS entry, time mapping
-- [ ] Phase 4: results table + summary chart, exports, i18n completion, auto-suggestion
+- [x] Phase 4: results table + summary chart, exports, i18n completion, auto-suggestion
+
+## How to use
+1. **Edit:** open the recording, press *Detect* for the frame rate, draw the ROIs (lamps, BSD Active, both cameras; optionally SPEED, CLOCK, distance boxes and `RL_FPS` / `RR_FPS` over the camera window titles), calibrate each lamp with *Sample ON* / *Sample OFF*, then *Start scan*.
+2. **Review:** for each event press `1`–`4` for the KPI type, `I` / `O` to mark the vehicle entering and leaving (frame count), type the camera fps from the capture, add a note. `←` / `→` moves between events. The dashed KPI button is the automatic suggestion; you decide.
+3. **Report:** check the summary, then *Export CSV*, *Copy rows for Excel* or *HTML report*. *Save session* keeps everything (settings, scan data, labels) in one JSON file.
 
 ## Results table (matches the KPI spreadsheet)
 | Column | Source |

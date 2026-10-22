@@ -380,6 +380,139 @@ section('labels survive re-thresholding (matchLabels)', () => {
   ok(ev2.length === 2 && m.every(i => i >= 0) && lab[m[0]].kpi === 'overtaken' && lab[m[1]].kpi === 'overtaking', 'labels follow events after threshold change', { ev2, m });
 });
 
+// ---------------- Phase 4 ----------------
+const EVS = [
+  { id: 1, side: 'L', tStart: 116.2, tEnd: 118.4 },
+  { id: 2, side: 'R', tStart: 120.0, tEnd: 121.5 },
+  { id: 3, side: 'R', tStart: 599.9, tEnd: 601.0 }
+];
+const LABS = [
+  { kpi: 'overtaken', fps: 59.4, markIn: 116.0, markOut: 116.0 + 17 / 60, note: 'white car, "close"' },
+  null,
+  { kpi: 'infrastructure', note: '=SUM(A1)' }
+];
+const CTX = { videoName: 'F2U_Highway_dry_off_64 km_2026-07-16 15-42-11', recFps: 60, anchor: { video: 0, clock: PL.parseClock('23:59:00') } };
+
+section('export rows (KPI sheet columns)', () => {
+  const rows = PL.buildRows(EVS, LABS, CTX);
+  ok(rows.length === 3, '3 rows');
+  const r = rows[0];
+  ok(r.timeline === '00:01:56' && r.kpiText === 'Overtaken' && r.side === 'L' && r.bsdLight === 'On', 'sheet fields', r);
+  ok(r.fps === 59.4 && r.frameCount === 17, 'fps + frame count', [r.fps, r.frameCount]);
+  ok(r.clock === '00:00:56', 'clock rolls past midnight', r.clock);
+  ok(rows[1].kpiText === '' && rows[1].fps === '' && rows[1].frameCount === '' && rows[1].note === '', 'unlabeled row blank');
+  ok(rows[2].timeline === '00:09:59' && rows[2].kpiText === 'Infrastructure', 'Timeline truncates to whole seconds');
+  ok(PL.buildRows(EVS, LABS, { ...CTX, anchor: null })[0].clock === '', 'no anchor -> no clock');
+  ok(PL.SHEET_COLS.join('|') === 'Video Name|Timeline|KPI Type|R/L|BSD Light|FPS|Frame Count', 'sheet column order');
+});
+
+section('CSV', () => {
+  const csv = PL.rowsToCsv(PL.buildRows(EVS, LABS, CTX));
+  const lines = csv.split('\r\n');
+  ok(lines.length === 5 && lines[4] === '', 'header + 3 rows, CRLF, trailing newline', lines.length);
+  ok(lines[0].startsWith('Video Name,Timeline,KPI Type,R/L,BSD Light,FPS,Frame Count,Event #'), 'header order');
+  ok(lines[1].startsWith('F2U_Highway_dry_off_64 km_2026-07-16 15-42-11,00:01:56,Overtaken,L,On,59.4,17,1,116.2,118.4,2.2,00:00:56,116,116.283,'), 'row 1', lines[1]);
+  ok(lines[1].endsWith('"white car, ""close"""'), 'quotes + comma escaped', lines[1]);
+  ok(lines[2].startsWith('F2U_Highway_dry_off_64 km_2026-07-16 15-42-11,00:02:00,,R,On,,,2,'), 'unlabeled row', lines[2]);
+  ok(lines[3].endsWith(",'=SUM(A1)"), 'formula-like note neutralised', lines[3]);
+  // parse back with a tiny RFC4180 reader
+  const parse = s => { const out = []; let row = [], cur = '', q = false; for (let i = 0; i < s.length; i++) { const c = s[i];
+    if (q) { if (c === '"' && s[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; } else if (c === '\r') {} else if (c === '\n') { row.push(cur); out.push(row); row = []; cur = ''; } else cur += c; } return out; };
+  const back = parse(csv);
+  ok(back.every(r => r.length === 15), 'every row has 15 cells', back.map(r => r.length));
+  ok(back[1][14] === 'white car, "close"', 'note round-trips', back[1][14]);
+});
+
+section('TSV for Excel paste', () => {
+  const rows = PL.buildRows(EVS, LABS, CTX);
+  const c = PL.rowsToTsv(rows).split('\r\n');
+  ok(c.length === 3 && c[0].split('\t').length === 7, 'compact: 7 columns, no header');
+  ok(c[0] === 'F2U_Highway_dry_off_64 km_2026-07-16 15-42-11\t00:01:56\tOvertaken\tL\tOn\t59.4\t17', 'compact row', c[0]);
+  const tp = PL.rowsToTsv(rows, { layout: 'template', header: true, nameFirstOnly: true }).split('\r\n');
+  ok(tp.length === 4 && tp[0].split('\t').length === 13, 'template: 13 columns (B..N)', tp[0].split('\t').length);
+  ok(tp[0].split('\t')[9] === 'R/L' && tp[0].split('\t')[3] === '', 'template: R/L in column K, E..J blank');
+  ok(tp[2].startsWith('\t00:02:00') && tp[1].startsWith('F2U_'), 'name on first row only');
+  const nasty = PL.rowsToTsv([{ ...rows[0], videoName: 'a\tb\nc' }]);
+  ok(nasty.split('\t').length === 7 && !nasty.includes('\n'), 'tabs/newlines in cells flattened');
+});
+
+section('summary counts', () => {
+  const c = PL.countSummary(PL.buildRows(EVS, LABS, CTX));
+  ok(c.overtaken.L === 1 && c.infrastructure.R === 1 && c.none.R === 1 && c.overtaking.L === 0, 'counts by KPI x side', c);
+  ok(Object.keys(c).join() === 'overtaking,overtaken,infrastructure,unclear,none', 'fixed category order');
+});
+
+section('auto-suggestion from motion energy', () => {
+  const T = Array.from({ length: 11 }, (_, i) => i * 0.8);
+  const noise = (seed) => { const r = rng(seed); return () => (r() - 0.5) * 0.6; };
+  const n1 = noise(1), n2 = noise(2), n3 = noise(3), n4 = noise(4);
+  // they pass us: energy ramps up, peaks late, drops sharply as the car exits
+  const rising = [3, 3.2, 3.5, 4.5, 6, 8, 10, 13, 15, 4, 3].map(v => v + n1());
+  // we pass them: big right away, then slowly decays toward the vanishing point
+  const decaying = [3, 15, 13, 11, 9, 7.5, 6, 5, 4, 3.5, 3].map(v => v + n2());
+  const flat = [3, 3.1, 2.9, 3.2, 3, 3.1, 3, 2.9, 3.1, 3, 3].map(v => v + n3());
+  const sym = [3, 3, 4, 8, 14, 15, 14, 8, 4, 3, 3].map(v => v + n4());
+  const a = PL.suggestDirection(rising, T), b = PL.suggestDirection(decaying, T);
+  ok(a.kpi === 'overtaken' && a.asym > 0.25, 'rising then exit -> overtaken (they pass us)', a);
+  ok(b.kpi === 'overtaking' && b.asym < -0.25, 'present then decay -> overtaking (we pass them)', b);
+  ok(PL.suggestDirection(flat, T).kpi === null && PL.suggestDirection(flat, T).reason === 'flat', 'no motion -> no suggestion');
+  ok(PL.suggestDirection(sym, T).kpi === null, 'symmetric -> no suggestion', PL.suggestDirection(sym, T));
+  ok(PL.suggestDirection([1, 2], [0, 1]).kpi === null, 'too few samples');
+  // energy curves measured in the browser on synthetic camera footage
+  const T10 = Array.from({ length: 11 }, (_, i) => i * 0.85);
+  const growExit = [0.0, 0.1, 0.3, 0.9, 2.9, 5.2, 8.9, 15.2, 23.1, 56.7, 0.0];      // car grows, then leaves the view
+  const shrink = [0.0, 0.0, 0.0, 0.0, 35.2, 15.2, 11.1, 5.1, 2.6, 1.0, 0.2];        // car big at once, then shrinks away
+  const plateau = [0.0, 0.0, 12.1, 17.5, 18.1, 16.6, 18.1, 16.8, 16.4, 11.8, 0.0];  // constant-size car sliding past
+  ok(PL.suggestDirection(growExit, T10).kpi === 'overtaken', 'measured: grow + exit -> overtaken', PL.suggestDirection(growExit, T10));
+  ok(PL.suggestDirection(shrink, T10).kpi === 'overtaking', 'measured: shrink away -> overtaking', PL.suggestDirection(shrink, T10));
+  ok(PL.suggestDirection(plateau, T10).kpi === null, 'measured: plateau -> no suggestion', PL.suggestDirection(plateau, T10));
+  ok(PL.suggestDirection([0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0], T10).kpi === null, 'single isolated spike -> no suggestion');
+  // grayscale + frame difference
+  const img = new Uint8ClampedArray([255, 255, 255, 255, 0, 0, 0, 255, 100, 100, 100, 255]);
+  const g = PL.grayFromRGBA(img);
+  ok(near(g[0], 255, 1e-3) && g[1] === 0 && near(g[2], 100, 1e-3), 'luma');
+  ok(near(PL.meanAbsDiff(g, new Float32Array([255, 30, 70])), 20, 1e-3), 'mean abs diff');
+  ok(PL.meanAbsDiff(new Float32Array(0), g) === 0, 'empty diff');
+});
+
+section('i18n completeness (EN / 简体 / 繁體)', () => {
+  const a = html.indexOf('const I18N = {'), b = html.indexOf('\n};', a);
+  const I18N = vm.runInNewContext('(' + html.slice(a + 'const I18N = '.length, b + 2) + ')', {});
+  const langs = ['en', 'zhs', 'zht'];
+  ok(langs.every(l => I18N[l]), 'three languages present');
+  const en = Object.keys(I18N.en);
+  for (const l of ['zhs', 'zht']) {
+    const keys = Object.keys(I18N[l]);
+    const missing = en.filter(k => !(k in I18N[l])), extra = keys.filter(k => !(k in I18N.en));
+    ok(!missing.length && !extra.length, `${l}: same keys as en`, { missing, extra });
+    const ph = s => (String(s).match(/\{\w+\}/g) || []).sort().join();
+    const bad = en.filter(k => ph(I18N.en[k]) !== ph(I18N[l][k]));
+    ok(!bad.length, `${l}: same {placeholders} as en`, bad);
+    // untranslated: identical to English, ignoring strings that are codes / symbols only
+    const same = en.filter(k => I18N[l][k] === I18N.en[k] && /[a-z]{3,}/.test(I18N.en[k]) && !/^[A-Z]/.test(I18N.en[k].replace(/^\W+/, '')));
+    ok(!same.length, `${l}: no English left untranslated`, same);
+  }
+  // every statically referenced key exists
+  const script = html.slice(html.indexOf('<script>'));
+  const used = new Set();
+  for (const re of [/\bt\('([A-Za-z_0-9]+)'(?!\s*\+)/g, /data-i18n(?:-html|-title|-placeholder)?="([A-Za-z_0-9]+)"/g]) {
+    let m; while ((m = re.exec(html))) used.add(m[1]);
+  }
+  // dynamic families
+  for (const k of ['overtaking', 'overtaken', 'infrastructure', 'unclear']) { used.add('kpi_' + k); used.add('kpiSub_' + k); }
+  used.add('kpi_none');
+  for (const r of ['rise', 'decay', 'flat', 'symmetric', 'few']) used.add('rvSug_' + r);
+  for (const s of ['L', 'R', 'A']) used.add('lamp' + s);
+  const roiKeys = [...script.matchAll(/\{ key: '([A-Z_]+)'/g)].map(m => m[1]);
+  ok(roiKeys.length === 11, '11 ROI definitions', roiKeys);
+  roiKeys.forEach(k => used.add('roi_' + k));
+  const undef = [...used].filter(k => !(k in I18N.en));
+  ok(!undef.length, 'all referenced keys defined', undef);
+  const unused = en.filter(k => !used.has(k));
+  console.log(`      (${en.length} strings x 3 languages, ${used.size} referenced${unused.length ? ', unused: ' + unused.join(' ') : ''})`);
+});
+
 section('redScore throughput (perf sanity)', () => {
   const img = lampImage(64 * 64, 0.5, 20, 9);
   const t0 = process.hrtime.bigint();
