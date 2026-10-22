@@ -151,6 +151,158 @@ section('session key match', () => {
   ok(PL.sessionKeyMismatch(PL.sessionKey('x', 1, Infinity), PL.sessionKey('x', 1, Infinity)).length === 0, 'unknown duration on both');
 });
 
+// ---------------- Phase 2 ----------------
+const G = PL.DEFAULT_GREEN;
+
+section('green classifier (BSD Active)', () => {
+  ok(PL.isHueInRangeRgb(40, 200, 60, G), 'lamp green');
+  ok(PL.isHueInRangeRgb(60, 220, 120, G), 'green-cyan ~142');
+  ok(!PL.isHueInRangeRgb(230, 40, 35, G), 'red is not green');
+  ok(!PL.isHueInRangeRgb(200, 200, 40, G), 'yellow 60 not green');
+  ok(!PL.isHueInRangeRgb(40, 120, 240, G), 'blue not green');
+  ok(!PL.isHueInRangeRgb(128, 128, 128, G), 'grey');
+  ok(!PL.isHueInRangeRgb(20, 70, 25, G), 'dark green below V');
+  const img = new Uint8ClampedArray(400 * 4);
+  for (let i = 0; i < 400; i++) { const on = i < 300; img.set(on ? [40, 210, 70, 255] : [120, 122, 125, 255], i * 4); }
+  ok(near(PL.greenScore(img, G), 0.75), 'greenScore 0.75', PL.greenScore(img, G));
+  ok(PL.greenScore(new Uint8ClampedArray(0), G) === 0, 'empty -> 0');
+});
+
+section('parseTime', () => {
+  ok(PL.parseTime('') === null && PL.parseTime('  ') === null && PL.parseTime(null) === null, 'empty -> null');
+  ok(PL.parseTime('83.5') === 83.5, 'seconds');
+  ok(PL.parseTime('1:23') === 83, 'm:ss');
+  ok(PL.parseTime('01:02:03.25') === 3723.25, 'h:mm:ss.ms');
+  ok(PL.parseTime(PL.fmtVideoTime(3723.004)) === 3723.004, 'round-trips fmtVideoTime');
+  ok(Number.isNaN(PL.parseTime('1:75')), 'seconds >= 60 invalid');
+  ok(Number.isNaN(PL.parseTime('abc')) && Number.isNaN(PL.parseTime('-5')), 'garbage invalid');
+});
+
+// Synthetic sampled timeline: fn(t) -> {L,R,A} scores, sampled every dt seconds.
+function timeline(t0, t1, dt, fn) {
+  const out = [];
+  const n = Math.round((t1 - t0) / dt);
+  for (let i = 0; i <= n; i++) { const t = +(t0 + i * dt).toFixed(6); out.push(Object.assign({ t }, fn(t, i))); }
+  return out;
+}
+const OPTS = { thrL: 0.3, thrR: 0.3, thrA: 0.3, gate: true, mergeGap: 0.5, minDuration: 0.3, maxHalf: 0.5 };
+const inR = (t, a, b) => t >= a && t < b;
+
+section('samples: merge / pack / coverage', () => {
+  const ex = timeline(0, 10, 1, () => ({ L: 0, R: 0, A: 1 }));
+  const fresh = timeline(3, 5, 0.5, () => ({ L: 1, R: 0, A: 1 }));
+  const m = PL.mergeSamples(ex, fresh, 3, 5);
+  ok(m.length === 11 - 3 + 5, 'replaced 3 old samples by 5 new', m.length);
+  ok(m.every((s, i) => i === 0 || s.t > m[i - 1].t), 'still sorted');
+  ok(m.filter(s => s.t >= 3 && s.t <= 5).every(s => s.L === 1), 'range holds only fresh');
+  ok(PL.mergeSamples([], fresh, 3, 5).length === 5, 'into empty');
+  ok(PL.lowerBound(ex, 4.5) === 5 && PL.lowerBound(ex, -1) === 0 && PL.lowerBound(ex, 99) === 11, 'lowerBound');
+  const pk = PL.packSamples([{ t: 1.23456, L: 0.71234, R: 0, A: null }]);
+  const up = PL.unpackSamples(JSON.parse(JSON.stringify(pk)));
+  ok(up.length === 1 && up[0].t === 1.235 && up[0].L === 0.712 && up[0].A === null, 'pack/unpack round trip', up);
+  ok(PL.unpackSamples({ data: [[null, 1], 'x', [2, 0.5, 0.1, 0.9]] }).length === 1, 'unpack skips bad rows');
+  ok(PL.unpackSamples(null).length === 0, 'unpack null');
+  const cov = PL.coverageSec(timeline(0, 10, 0.2, () => ({})).concat(timeline(20, 30, 0.2, () => ({}))), 1);
+  ok(near(cov, 20, 1e-6), 'coverage skips 10 s hole', cov);
+  ok(near(PL.scanEta(0, 100, 25, 10), 30) && PL.scanEta(0, 100, 0, 5) === null, 'scanEta');
+});
+
+section('events: clean ON/OFF + edge placement', () => {
+  // L on from 2.0 to 4.0 (samples at 5 fps), BSD active
+  const s = timeline(0, 10, 0.2, t => ({ L: inR(t, 2, 4) ? 0.7 : 0.01, R: 0, A: 0.8 }));
+  const ev = PL.extractEvents(s, OPTS);
+  ok(ev.length === 1 && ev[0].side === 'L' && ev[0].id === 1, 'one L event', ev);
+  ok(near(ev[0].tStart, 1.9, 1e-6) && near(ev[0].tEnd, 3.9, 1e-6), 'edges halfway to neighbours', ev[0]);
+  ok(near(ev[0].duration, 2.0, 1e-6), 'duration ~2.0 s');
+  // lamp on at the very first / last sample: edges clamp to sample times
+  const e2 = PL.extractEvents(timeline(0, 3, 0.2, t => ({ L: 0.7, R: 0, A: 1 })), OPTS);
+  ok(e2.length === 1 && e2[0].tStart === 0 && e2[0].tEnd === 3, 'whole range ON', e2);
+  // data hole: edges extend at most maxHalf
+  const holes = [{ t: 0, L: 0, A: 1 }, { t: 0.2, L: 0.8, A: 1 }, { t: 0.4, L: 0.8, A: 1 }, { t: 10, L: 0, A: 1 }];
+  const e3 = PL.extractEvents(holes, OPTS);
+  ok(e3.length === 1 && near(e3[0].tEnd, 0.9), 'edge capped by maxHalf over data gap', e3);
+});
+
+section('events: noisy sequence, short glitches', () => {
+  const r = rng(42);
+  const truth = [[5, 9], [20, 21.5], [40, 47]];
+  const s = timeline(0, 60, 0.2, t => {
+    const on = truth.some(([a, b]) => inR(t, a, b));
+    return { L: on ? 0.55 + (r() - 0.5) * 0.3 : 0.04 + r() * 0.08, R: 0.02, A: 0.9 };
+  });
+  // inject glitches: one-sample flash while OFF, one-sample dropout while ON
+  s[Math.round(30 / 0.2)].L = 0.9;     // flash at 30 s (0.2 s long -> < minDuration)
+  s[Math.round(7 / 0.2)].L = 0.0;      // dropout inside 5–9 s
+  s[Math.round(44 / 0.2)].L = 0.0;     // dropout inside 40–47 s
+  const ev = PL.extractEvents(s, OPTS);
+  ok(ev.length === 3, '3 events (flash dropped, dropouts merged)', ev.map(e => [e.tStart, e.tEnd]));
+  ev.forEach((e, i) => ok(Math.abs(e.tStart - truth[i][0]) <= 0.2 && Math.abs(e.tEnd - truth[i][1]) <= 0.2, 'edges within one sample #' + (i + 1), e));
+  // without merging, each dropout splits an event
+  ok(PL.extractEvents(s, { ...OPTS, mergeGap: 0 }).length === 5, 'mergeGap 0 -> dropouts split');
+  // without min duration the flash appears
+  ok(PL.extractEvents(s, { ...OPTS, minDuration: 0 }).length === 4, 'minDuration 0 -> flash kept');
+});
+
+section('events: merge-gap and min-duration boundaries', () => {
+  const seg = (a, b) => ({ tStart: a, tEnd: b });
+  ok(PL.mergeSegments([seg(0, 1), seg(1.49, 2)], 0.5).length === 1, 'gap 0.49 < 0.5 merges');
+  ok(PL.mergeSegments([seg(0, 1), seg(1.5, 2)], 0.5).length === 2, 'gap 0.50 == mergeGap does not merge');
+  ok(PL.mergeSegments([seg(0, 1), seg(1.51, 2)], 0.5).length === 2, 'gap 0.51 does not merge');
+  const chain = PL.mergeSegments([seg(0, 1), seg(1.3, 2), seg(2.4, 3)], 0.5);
+  ok(chain.length === 1 && chain[0].tEnd === 3, 'chained merge', chain);
+  ok(PL.mergeSegments([seg(0, 5), seg(1, 2)], 0.5)[0].tEnd === 5, 'contained segment keeps outer end');
+  ok(PL.dropShort([seg(0, 0.3)], 0.3).length === 1, 'duration == min kept');
+  ok(PL.dropShort([seg(0, 0.29)], 0.3).length === 0, 'duration < min dropped');
+  // sampled: a 0.5 s OFF gap at 10 fps (5 OFF samples) with mergeGap 0.5 -> edges 0.5 apart -> not merged; 0.4 s gap -> merged
+  const mk = gap => timeline(0, 6, 0.1, t => ({ L: (inR(t, 1, 2.5) || inR(t, 2.5 + gap, 4)) ? 0.8 : 0, R: 0, A: 1 }));
+  ok(PL.extractEvents(mk(0.4), OPTS).length === 1, 'sampled 0.4 s gap merges');
+  ok(PL.extractEvents(mk(0.5), OPTS).length === 2, 'sampled 0.5 s gap stays split');
+});
+
+section('events: simultaneous L + R', () => {
+  const s = timeline(0, 20, 0.2, t => ({ L: inR(t, 5, 10) ? 0.7 : 0, R: inR(t, 7, 12) ? 0.7 : 0, A: 1 }));
+  const ev = PL.extractEvents(s, OPTS);
+  ok(ev.length === 2, 'two events', ev);
+  ok(ev[0].side === 'L' && ev[1].side === 'R' && ev[0].id === 1 && ev[1].id === 2, 'sorted by start, ids 1..n');
+  const same = PL.extractEvents(timeline(0, 10, 0.2, t => ({ L: inR(t, 2, 4) ? 1 : 0, R: inR(t, 2, 4) ? 1 : 0, A: 1 })), OPTS);
+  ok(same.length === 2 && same[0].side === 'L' && same[1].side === 'R', 'identical times -> L then R');
+});
+
+section('events: BSD Active gating', () => {
+  // L lamp on 2–8 s, but BSD Active only on from 5 s
+  const s = timeline(0, 12, 0.2, t => ({ L: inR(t, 2, 8) ? 0.7 : 0, R: inR(t, 1, 3) ? 0.7 : 0, A: t >= 5 ? 0.9 : 0.02 }));
+  const ev = PL.extractEvents(s, OPTS);
+  ok(ev.length === 1 && ev[0].side === 'L', 'R (active off) suppressed, L kept', ev);
+  ok(near(ev[0].tStart, 4.9, 1e-6), 'L event starts when BSD Active turns on', ev[0]);
+  ok(PL.extractEvents(s, { ...OPTS, gate: false }).length === 2, 'gate off -> both');
+  // missing A scores (no BSD_ACTIVE ROI) with gate on -> nothing counts
+  const noA = timeline(0, 5, 0.2, t => ({ L: 0.7, R: 0, A: null }));
+  ok(PL.extractEvents(noA, OPTS).length === 0 && PL.extractEvents(noA, { ...OPTS, gate: false }).length === 1, 'null A');
+  // binarize directly
+  const b = PL.binarize([{ L: 0.5, A: 0.5 }, { L: 0.5, A: 0.1 }, { L: 0.1, A: 0.5 }], 'L', 0.3, 'A', 0.3);
+  ok(b.join() === 'true,false,false', 'binarize with gate', b);
+});
+
+section('events: irregular play-mode sampling', () => {
+  // ~7.5 samples/s with jitter and a 0.6 s stall inside an event
+  const r = rng(3), s = [];
+  for (let t = 0; t < 30; t += 0.1 + r() * 0.06) {
+    if (t > 12.0 && t < 12.6) continue;   // stall
+    s.push({ t, L: inR(t, 10, 15) ? 0.7 : 0.02, R: 0, A: 1 });
+  }
+  const ev = PL.extractEvents(s, OPTS);
+  ok(ev.length === 1 && Math.abs(ev[0].tStart - 10) < 0.2 && Math.abs(ev[0].tEnd - 15) < 0.2, 'one event across the stall', ev);
+});
+
+section('extractEvents throughput (perf sanity)', () => {
+  const s = timeline(0, 7200, 0.2, (t, i) => ({ L: (i % 97) < 10 ? 0.7 : 0, R: (i % 131) < 20 ? 0.7 : 0, A: 1 }));
+  const t0 = process.hrtime.bigint();
+  const ev = PL.extractEvents(s, OPTS);
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  ok(ms < 300, '2 h at 5 Hz (36k samples) in < 300 ms', ms.toFixed(1) + ' ms');
+  console.log(`      (${s.length} samples -> ${ev.length} events in ${ms.toFixed(1)} ms)`);
+});
+
 section('redScore throughput (perf sanity)', () => {
   const img = lampImage(64 * 64, 0.5, 20, 9);
   const t0 = process.hrtime.bigint();

@@ -96,6 +96,37 @@
   .grid2 input{padding:2px 4px;border:1px solid #cfd4e0;border-radius:5px;font:12px ui-monospace,Consolas,monospace;width:80px;}
   kbd{font:11px ui-monospace,Consolas,monospace;background:#eceff5;border:1px solid #cfd4e0;border-bottom-width:2px;border-radius:4px;padding:0 4px;}
 
+  .meter[data-side="A"] .lampDot.on{background:#2fd158;box-shadow:0 0 8px #2fd158;}
+  .meter[data-side="A"] .bar .fill.on{background:#2fd158;}
+  .meter[data-side="A"] .mState.on{background:#1f9d55;}
+  .calib[data-side="A"] .lampDot.on{background:#2fd158;box-shadow:0 0 8px #2fd158;}
+
+  /* ---- strip chart ---- */
+  .chartBox{flex:0 0 130px;position:relative;background:#0f1218;border-top:1px solid var(--shell-line);}
+  .chartBox canvas{position:absolute;inset:0;width:100%;height:100%;cursor:pointer;}
+  .chartLegend{position:absolute;right:8px;top:4px;font-size:11px;color:#9aa2b5;pointer-events:none;display:flex;gap:10px;}
+  .chartLegend i{display:inline-block;width:10px;height:3px;margin-right:4px;vertical-align:middle;}
+
+  /* ---- scan + events ---- */
+  .segL{display:inline-flex;border:1px solid #cfd4e0;border-radius:7px;overflow:hidden;}
+  .segL button{all:unset;cursor:pointer;padding:3px 10px;font-size:12px;color:#555;}
+  .segL button.on{background:var(--shell);color:#fff;}
+  .grid2 select{padding:2px 4px;border:1px solid #cfd4e0;border-radius:5px;font:12px ui-monospace,Consolas,monospace;width:80px;}
+  .grid2 input[type=text]{width:80px;}
+  .prog{height:8px;background:#e8ebf2;border-radius:4px;overflow:hidden;margin:8px 0 4px;}
+  .prog div{height:100%;width:0;background:var(--red);transition:width .2s;}
+  #scanInfo{font:11.5px ui-monospace,Consolas,monospace;color:#444;min-height:16px;}
+  .sbtn:disabled{opacity:.4;cursor:default;}
+  #evSummary{font-size:12px;color:#444;margin-bottom:6px;}
+  #evList{max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:7px;}
+  .evRow{display:grid;grid-template-columns:34px 22px 1fr 64px;gap:6px;padding:3px 8px;font:12px ui-monospace,Consolas,monospace;cursor:pointer;border-bottom:1px solid #f0f2f6;}
+  .evRow:hover{background:#f4f6fb;}
+  .evRow.sel{background:#fde8e8;}
+  .evRow .sd{font-weight:700;}
+  .evRow .sd.L{color:#d42a24;} .evRow .sd.R{color:#d97706;}
+  .evEmpty{padding:10px;color:#8a90a2;font-size:12px;}
+  .chk{display:flex;align-items:center;gap:6px;margin:6px 0;}
+
   /* ---- report view ---- */
   .report{flex:1;overflow:auto;padding:24px;}
   .report .card{max-width:900px;margin:0 auto;}
@@ -113,6 +144,7 @@
          box-shadow:0 4px 18px rgba(0,0,0,.3);font-size:13px;z-index:1100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80vw;}
   #toast.show{opacity:1;}
   #toast.warn{background:#a8321f;}
+  body.scanning .controls, body.scanning #overlay, body.scanning .calib, body.scanning #roiList{pointer-events:none;opacity:.55;}
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -163,6 +195,13 @@
           <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
         <div class="meter" data-side="R"><span class="mLbl" data-i18n="lampR"></span><span class="lampDot"></span>
           <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+        <div class="meter" data-side="A"><span class="mLbl" data-i18n="lampA"></span><span class="lampDot"></span>
+          <div class="bar"><div class="fill"></div><div class="thr"></div></div><span class="mVal">—</span><span class="mState">—</span></div>
+      </div>
+      <div class="chartBox" id="chartBox">
+        <canvas id="chart"></canvas>
+        <div class="chartLegend"><span><i style="background:#ff4d4d"></i>L</span><span><i style="background:#ff9f1a"></i>R</span>
+          <span><i style="background:#2fd158"></i>BSD Active</span><span data-i18n="chartHint"></span></div>
       </div>
     </section>
 
@@ -194,6 +233,47 @@
           <div class="crow"><span data-i18n="threshold"></span>
             <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
         </div>
+        <div class="calib" data-side="A">
+          <div class="calibHead"><span class="lampDot"></span><span data-i18n="lampA"></span><span class="calScore">—</span></div>
+          <div class="crow">
+            <button class="sbtn pri" data-sample="on" data-i18n="sampleOn"></button><span class="v onVal">—</span>
+            <button class="sbtn" data-sample="off" data-i18n="sampleOff"></button><span class="v offVal">—</span>
+          </div>
+          <div class="crow"><span data-i18n="threshold"></span>
+            <input type="range" class="thrRange" min="0" max="1" step="0.005"><input type="number" class="thrNum" min="0" max="1" step="0.005"></div>
+        </div>
+      </div>
+
+      <div class="card" id="scanCard">
+        <h3 data-i18n="scanTitle"></h3>
+        <p class="hint" data-i18n="scanHint"></p>
+        <div class="crow"><span class="segL" id="scanModeSeg">
+          <button data-mode="play" data-i18n="modePlay"></button><button data-mode="seek" data-i18n="modeSeek"></button></span></div>
+        <div class="grid2">
+          <label for="scanSeekFps" data-i18n="seekFps"></label><input type="number" id="scanSeekFps" min="0.5" max="60" step="0.5">
+          <label for="scanPlayRate" data-i18n="playRate"></label>
+          <select id="scanPlayRate"><option value="2">2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option></select>
+          <label for="scanFrom" data-i18n="scanFrom"></label><input type="text" id="scanFrom" placeholder="0:00">
+          <label for="scanTo" data-i18n="scanTo"></label><input type="text" id="scanTo" data-i18n-placeholder="scanToEnd">
+        </div>
+        <label class="chk"><input type="checkbox" id="scanGate"><span data-i18n="gateActive"></span></label>
+        <div class="crow">
+          <button class="sbtn pri" id="btnScan" data-i18n="startScan"></button>
+          <button class="sbtn" id="btnScanCancel" data-i18n="cancel" disabled></button>
+          <button class="sbtn" id="btnClearScan" data-i18n="clearScan"></button>
+        </div>
+        <div class="prog"><div id="scanBar"></div></div>
+        <div id="scanInfo"></div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="eventsTitle"></h3>
+        <div class="grid2" style="margin-bottom:8px">
+          <label for="evMergeGap" data-i18n="mergeGap"></label><input type="number" id="evMergeGap" min="0" max="10" step="0.05">
+          <label for="evMinDur" data-i18n="minDuration"></label><input type="number" id="evMinDur" min="0" max="10" step="0.05">
+        </div>
+        <div id="evSummary"></div>
+        <div id="evList"></div>
       </div>
 
       <div class="card">
@@ -206,6 +286,18 @@
           <label for="redVMin" data-i18n="vMin"></label><input type="number" id="redVMin" data-red="vMin" min="0" max="1" step="0.01">
         </div>
         <div class="crow" style="margin-top:8px"><button class="sbtn" id="btnRedReset" data-i18n="resetDefaults"></button></div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="greenTitle"></h3>
+        <p class="hint" data-i18n="greenHint"></p>
+        <div class="grid2">
+          <label for="grnHueMin" data-i18n="hueMin"></label><input type="number" id="grnHueMin" data-green="hueMin" min="0" max="360" step="1">
+          <label for="grnHueMax" data-i18n="hueMax"></label><input type="number" id="grnHueMax" data-green="hueMax" min="0" max="360" step="1">
+          <label for="grnSMin" data-i18n="sMin"></label><input type="number" id="grnSMin" data-green="sMin" min="0" max="1" step="0.01">
+          <label for="grnVMin" data-i18n="vMin"></label><input type="number" id="grnVMin" data-green="vMin" min="0" max="1" step="0.01">
+        </div>
+        <div class="crow" style="margin-top:8px"><button class="sbtn" id="btnGreenReset" data-i18n="resetDefaults"></button></div>
       </div>
 
       <div class="card">
@@ -376,9 +468,137 @@ const PureLogic = (function () {
     return out;
   }
 
+  // ---- Green (BSD Active) classifier: hue inside [hueMin, hueMax] (no wrap) ----
+  const DEFAULT_GREEN = Object.freeze({ hueMin: 85, hueMax: 160, sMin: 0.4, vMin: 0.35 });
+  function isHueInRangeRgb(r, g, b, p) {
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0 || max / 255 < p.vMin || d / max < p.sMin) return false;
+    let h;
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+    if (h < 0) h += 360;
+    return h >= p.hueMin && h <= p.hueMax;
+  }
+  function greenScore(data, p) {
+    const n = data.length >> 2;
+    if (!n) return 0;
+    let c = 0;
+    for (let i = 0; i < data.length; i += 4) if (isHueInRangeRgb(data[i], data[i + 1], data[i + 2], p)) c++;
+    return c / n;
+  }
+
+  // "1:02:03.5", "02:03", "83.5" -> seconds; "" -> null; invalid -> NaN
+  function parseTime(str) {
+    const s = String(str == null ? '' : str).trim();
+    if (!s) return null;
+    if (!/^\d+(\.\d+)?$|^\d+:\d{1,2}(\.\d+)?$|^\d+:\d{1,2}:\d{1,2}(\.\d+)?$/.test(s)) return NaN;
+    const parts = s.split(':').map(Number);
+    if (parts.length > 1 && parts.slice(1).some(x => x >= 60)) return NaN;
+    return parts.reduce((acc, x) => acc * 60 + x, 0);
+  }
+
+  // ---- Samples: [{t, L, R, A}] sorted by t ----
+  // first index with samples[i].t >= t
+  function lowerBound(samples, t) {
+    let lo = 0, hi = samples.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (samples[mid].t < t) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+  // Replace existing samples inside [from, to] with fresh ones.
+  // Both arrays sorted by t; fresh must lie inside [from, to]. O(n), no sort.
+  function mergeSamples(existing, fresh, from, to) {
+    const i = lowerBound(existing, from);
+    let j = lowerBound(existing, to);
+    while (j < existing.length && existing[j].t <= to) j++;
+    return existing.slice(0, i).concat(fresh, existing.slice(j));
+  }
+  // Seconds of video covered by samples; gaps longer than maxGap count as not scanned.
+  function coverageSec(samples, maxGap) {
+    let c = 0;
+    for (let i = 1; i < samples.length; i++) { const d = samples[i].t - samples[i - 1].t; if (d <= maxGap) c += d; }
+    return c;
+  }
+  // Compact form for the session file: rounded numbers in arrays.
+  function packSamples(samples) {
+    const r3 = x => (Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
+    return { fields: ['t', 'L', 'R', 'A'], data: samples.map(s => [r3(s.t), r3(s.L), r3(s.R), r3(s.A)]) };
+  }
+  function unpackSamples(pk) {
+    if (!pk || !Array.isArray(pk.data)) return [];
+    const out = [];
+    for (const row of pk.data) {
+      if (!Array.isArray(row) || !Number.isFinite(row[0])) continue;
+      const num = x => (Number.isFinite(x) ? x : null);
+      out.push({ t: row[0], L: num(row[1]), R: num(row[2]), A: num(row[3]) });
+    }
+    out.sort((a, b) => a.t - b.t);
+    return out;
+  }
+
+  // ---- Event extraction ----
+  // Per-sample ON flags for one lamp; optional gate (BSD Active) must also be ON.
+  function binarize(samples, key, thr, gateKey, gateThr) {
+    return samples.map(s => lampIsOn(s[key], thr) && (!gateKey || lampIsOn(s[gateKey], gateThr)));
+  }
+  // ON runs -> segments. Each edge sits halfway to the neighbouring OFF sample,
+  // but never more than maxHalf away from the ON sample (protects against data gaps).
+  function runsToSegments(samples, on, maxHalf) {
+    const segs = [], n = samples.length;
+    let i = 0;
+    while (i < n) {
+      if (!on[i]) { i++; continue; }
+      let j = i;
+      while (j + 1 < n && on[j + 1]) j++;
+      const ti = samples[i].t, tj = samples[j].t;
+      const tStart = i > 0 ? Math.max(ti - maxHalf, (samples[i - 1].t + ti) / 2) : ti;
+      const tEnd = j < n - 1 ? Math.min(tj + maxHalf, (tj + samples[j + 1].t) / 2) : tj;
+      segs.push({ tStart, tEnd });
+      i = j + 1;
+    }
+    return segs;
+  }
+  // Merge segments whose gap is strictly smaller than mergeGap.
+  function mergeSegments(segs, mergeGap) {
+    const out = [];
+    for (const s of segs) {
+      const last = out[out.length - 1];
+      if (last && s.tStart - last.tEnd < mergeGap - 1e-9) last.tEnd = Math.max(last.tEnd, s.tEnd);
+      else out.push({ tStart: s.tStart, tEnd: s.tEnd });
+    }
+    return out;
+  }
+  function dropShort(segs, minDuration) {
+    return segs.filter(s => s.tEnd - s.tStart >= minDuration - 1e-9);
+  }
+  // opts: {thrL, thrR, thrA, gate, mergeGap, minDuration, maxHalf}
+  // -> [{id, side, tStart, tEnd, duration}] sorted by tStart (L before R on ties)
+  function extractEvents(samples, opts) {
+    const o = Object.assign({ gate: true, mergeGap: 0.5, minDuration: 0.3, maxHalf: 0.5 }, opts);
+    const ev = [];
+    for (const side of ['L', 'R']) {
+      const on = binarize(samples, side, side === 'L' ? o.thrL : o.thrR, o.gate ? 'A' : null, o.thrA);
+      const segs = dropShort(mergeSegments(runsToSegments(samples, on, o.maxHalf), o.mergeGap), o.minDuration);
+      for (const s of segs) ev.push({ side, tStart: s.tStart, tEnd: s.tEnd, duration: s.tEnd - s.tStart });
+    }
+    ev.sort((a, b) => a.tStart - b.tStart || (a.side < b.side ? -1 : 1));
+    ev.forEach((e, i) => { e.id = i + 1; });
+    return ev.map(e => ({ id: e.id, side: e.side, tStart: e.tStart, tEnd: e.tEnd, duration: e.duration }));
+  }
+
+  // Remaining seconds of wall time, given scan progress in video seconds.
+  function scanEta(from, to, t, elapsedSec) {
+    const done = t - from;
+    if (!(done > 0) || !(elapsedSec > 0)) return null;
+    return Math.max(0, (to - t) * elapsedSec / done);
+  }
+
   return { DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
            rectFromPoints, clampNormRect, moveRect, normToPx, fmtVideoTime, snapFps, estimateFps,
-           sessionKey, sessionKeyMismatch };
+           sessionKey, sessionKeyMismatch,
+           DEFAULT_GREEN, isHueInRangeRgb, greenScore, parseTime, lowerBound, mergeSamples,
+           coverageSec, packSamples, unpackSamples, binarize, runsToSegments, mergeSegments, dropShort,
+           extractEvents, scanEta };
 })();
 /* ===== PURE LOGIC END ===== */
 
@@ -413,7 +633,7 @@ const I18N = {
     redHint: 'A pixel counts as red if hue ≤ low or ≥ high, and saturation and value pass. Lamp score = red pixels ÷ ROI pixels.',
     hueLo: 'Hue ≤ (°)', hueHi: 'Hue ≥ (°)', sMin: 'Saturation ≥', vMin: 'Value ≥', resetDefaults: 'Reset defaults',
     shortcutsTitle: 'Shortcuts',
-    shortcutsBody: '<kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>[</kbd> <kbd>]</kbd> ±1 s · <kbd>Esc</kbd> cancel drawing',
+    shortcutsBody: '<kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>[</kbd> <kbd>]</kbd> ±1 s · <kbd>Esc</kbd> cancel drawing / scan',
     reportPlaceholder: 'Events and the exportable report appear here after scanning (Phase 2–4).',
     msgNeedVideo: 'Open a video first.', msgNeedRoi: 'Draw the {roi} ROI first.',
     msgOnLeOff: 'The ON sample ({on}) must be higher than the OFF sample ({off}). Check the frames or the ROI.',
@@ -432,6 +652,23 @@ const I18N = {
     sessionLoaded: 'Session loaded.', sessionSaved: 'Session saved.', sessionBad: 'Not a valid session file.',
     sessionPendingVideo: 'Session loaded. It was saved for: {a}',
     statusNoVideo: 'No video loaded', statusLoading: 'Loading {name}…',
+    lampA: 'BSD Active', roi_BSD_ACTIVE: 'BSD Active lamp (green)',
+    chartHint: 'click = seek · wheel = zoom · drag = pan · double-click = all',
+    scanTitle: 'Scan', scanHint: 'Play mode is fast (plays muted at 2–8×). Seek mode is exact but slow on long MKV files. Keep this tab visible while scanning.',
+    modePlay: 'Play (fast)', modeSeek: 'Seek (exact)', seekFps: 'Samples / s', playRate: 'Speed',
+    scanFrom: 'From', scanTo: 'To', scanToEnd: 'end',
+    gateActive: 'Only count lamps while BSD Active is on', startScan: 'Start scan', clearScan: 'Clear scan data',
+    eventsTitle: 'Events', mergeGap: 'Merge gaps < (s)', minDuration: 'Min duration (s)',
+    greenTitle: 'Green pixel classifier (BSD Active)', greenHint: 'A pixel counts as green if hue is between min and max, and saturation and value pass.',
+    hueMin: 'Hue ≥ (°)', hueMax: 'Hue ≤ (°)',
+    scanProgress: '{pct}% · {t} / {to} · ETA {eta} · {n} samples',
+    scanDone: 'Scan finished: {n} events from {s} samples ({sec} s).', scanCancelled: 'Scan cancelled at {t}; data so far is kept.',
+    scanNeedRoi: 'Draw these ROIs first: {list}', scanBadRange: 'Invalid From/To time.',
+    scanHidden: 'Scan paused while the tab is hidden; it resumes when you come back.',
+    scanFailed: 'Scan stopped: {why}',
+    evSummary: '{n} events · L {l} · R {r} · scanned {cov}', evNone: 'No events. Lower the thresholds or check the ROIs.',
+    evNoScan: 'No scan data yet.', rescanNeeded: 'Colour settings changed: rescan to apply them to existing scan data.',
+    clearScanConfirm: 'Delete all scan data for this video?', scanDataLoaded: 'Scan data loaded: {n} samples.',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -460,7 +697,7 @@ const I18N = {
     redHint: '色相 ≤ 下限或 ≥ 上限，且饱和度、亮度达标的像素计为红色。灯分数 = 红色像素 ÷ ROI 像素。',
     hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '饱和度 ≥', vMin: '亮度 ≥', resetDefaults: '恢复默认',
     shortcutsTitle: '快捷键',
-    shortcutsBody: '<kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框选',
+    shortcutsBody: '<kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框选 / 扫描',
     reportPlaceholder: '扫描后，事件列表与可导出报告将显示在此（第 2–4 阶段）。',
     msgNeedVideo: '请先打开视频。', msgNeedRoi: '请先框选 {roi}。',
     msgOnLeOff: '“亮”采样值（{on}）必须大于“灭”采样值（{off}）。请检查所选帧或 ROI。',
@@ -479,6 +716,23 @@ const I18N = {
     sessionLoaded: '会话已载入。', sessionSaved: '会话已保存。', sessionBad: '不是有效的会话文件。',
     sessionPendingVideo: '会话已载入。对应视频：{a}',
     statusNoVideo: '未载入视频', statusLoading: '正在载入 {name}…',
+    lampA: 'BSD 激活', roi_BSD_ACTIVE: 'BSD 激活灯（绿色）',
+    chartHint: '单击 = 跳转 · 滚轮 = 缩放 · 拖动 = 平移 · 双击 = 全部',
+    scanTitle: '扫描', scanHint: '播放模式速度快（静音 2–8 倍速播放）。跳帧模式精确，但长 MKV 文件较慢。扫描时请保持此标签页可见。',
+    modePlay: '播放（快）', modeSeek: '跳帧（精确）', seekFps: '采样 / 秒', playRate: '倍速',
+    scanFrom: '起点', scanTo: '终点', scanToEnd: '结尾',
+    gateActive: '仅在 BSD 激活灯亮时计数', startScan: '开始扫描', clearScan: '清除扫描数据',
+    eventsTitle: '事件', mergeGap: '合并间隔 <（秒）', minDuration: '最短时长（秒）',
+    greenTitle: '绿色像素判定（BSD 激活）', greenHint: '色相在下限与上限之间，且饱和度、亮度达标的像素计为绿色。',
+    hueMin: '色相 ≥（°）', hueMax: '色相 ≤（°）',
+    scanProgress: '{pct}% · {t} / {to} · 剩余 {eta} · {n} 个采样',
+    scanDone: '扫描完成：{s} 个采样中找到 {n} 个事件（用时 {sec} 秒）。', scanCancelled: '扫描已在 {t} 取消，已保留现有数据。',
+    scanNeedRoi: '请先框选以下 ROI：{list}', scanBadRange: '起点/终点时间无效。',
+    scanHidden: '标签页隐藏时扫描暂停，返回后自动继续。',
+    scanFailed: '扫描中止：{why}',
+    evSummary: '{n} 个事件 · 左 {l} · 右 {r} · 已扫描 {cov}', evNone: '没有事件。请降低阈值或检查 ROI。',
+    evNoScan: '尚无扫描数据。', rescanNeeded: '颜色设置已更改：需重新扫描才会作用于已有扫描数据。',
+    clearScanConfirm: '删除此视频的全部扫描数据？', scanDataLoaded: '已载入扫描数据：{n} 个采样。',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -507,7 +761,7 @@ const I18N = {
     redHint: '色相 ≤ 下限或 ≥ 上限，且飽和度、明度達標的像素計為紅色。燈分數 = 紅色像素 ÷ ROI 像素。',
     hueLo: '色相 ≤（°）', hueHi: '色相 ≥（°）', sMin: '飽和度 ≥', vMin: '明度 ≥', resetDefaults: '恢復預設',
     shortcutsTitle: '快速鍵',
-    shortcutsBody: '<kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框選',
+    shortcutsBody: '<kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>[</kbd> <kbd>]</kbd> ±1 秒 · <kbd>Esc</kbd> 取消框選 / 掃描',
     reportPlaceholder: '掃描後，事件清單與可匯出報告將顯示於此（第 2–4 階段）。',
     msgNeedVideo: '請先開啟影片。', msgNeedRoi: '請先框選 {roi}。',
     msgOnLeOff: '「亮」取樣值（{on}）必須大於「滅」取樣值（{off}）。請檢查所選影格或 ROI。',
@@ -526,6 +780,23 @@ const I18N = {
     sessionLoaded: '工作階段已載入。', sessionSaved: '工作階段已儲存。', sessionBad: '不是有效的工作階段檔案。',
     sessionPendingVideo: '工作階段已載入。對應影片：{a}',
     statusNoVideo: '尚未載入影片', statusLoading: '正在載入 {name}…',
+    lampA: 'BSD 啟用', roi_BSD_ACTIVE: 'BSD 啟用燈（綠色）',
+    chartHint: '點擊 = 跳轉 · 滾輪 = 縮放 · 拖曳 = 平移 · 雙擊 = 全部',
+    scanTitle: '掃描', scanHint: '播放模式速度快（靜音 2–8 倍速播放）。跳格模式精確，但長 MKV 檔案較慢。掃描時請保持此分頁可見。',
+    modePlay: '播放（快）', modeSeek: '跳格（精確）', seekFps: '取樣 / 秒', playRate: '倍速',
+    scanFrom: '起點', scanTo: '終點', scanToEnd: '結尾',
+    gateActive: '僅在 BSD 啟用燈亮時計數', startScan: '開始掃描', clearScan: '清除掃描資料',
+    eventsTitle: '事件', mergeGap: '合併間隔 <（秒）', minDuration: '最短時長（秒）',
+    greenTitle: '綠色像素判定（BSD 啟用）', greenHint: '色相在下限與上限之間，且飽和度、明度達標的像素計為綠色。',
+    hueMin: '色相 ≥（°）', hueMax: '色相 ≤（°）',
+    scanProgress: '{pct}% · {t} / {to} · 剩餘 {eta} · {n} 個取樣',
+    scanDone: '掃描完成：{s} 個取樣中找到 {n} 個事件（用時 {sec} 秒）。', scanCancelled: '掃描已在 {t} 取消，已保留現有資料。',
+    scanNeedRoi: '請先框選以下 ROI：{list}', scanBadRange: '起點/終點時間無效。',
+    scanHidden: '分頁隱藏時掃描暫停，返回後自動繼續。',
+    scanFailed: '掃描中止：{why}',
+    evSummary: '{n} 個事件 · 左 {l} · 右 {r} · 已掃描 {cov}', evNone: '沒有事件。請降低門檻或檢查 ROI。',
+    evNoScan: '尚無掃描資料。', rescanNeeded: '顏色設定已變更：需重新掃描才會套用到既有掃描資料。',
+    clearScanConfirm: '刪除此影片的全部掃描資料？', scanDataLoaded: '已載入掃描資料：{n} 個取樣。',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -540,6 +811,7 @@ const LS_KEY = 'bsdEventAnalyzer.v1';
 const ROI_DEFS = [
   { key: 'LEFT_LAMP',  req: true,  color: '#ff4d4d' },
   { key: 'RIGHT_LAMP', req: true,  color: '#ff9f1a' },
+  { key: 'BSD_ACTIVE', req: true,  color: '#e5e7eb' },
   { key: 'RL_CAM',     req: true,  color: '#3fa9f5' },
   { key: 'RR_CAM',     req: true,  color: '#2ecc71' },
   { key: 'SPEED',      req: false, color: '#c084fc' },
@@ -547,14 +819,17 @@ const ROI_DEFS = [
   { key: 'RL_DIST',    req: false, color: '#22d3ee' },
   { key: 'RR_DIST',    req: false, color: '#a3e635' }
 ];
-const LAMP_ROI = { L: 'LEFT_LAMP', R: 'RIGHT_LAMP' };
+const LAMP_ROI = { L: 'LEFT_LAMP', R: 'RIGHT_LAMP', A: 'BSD_ACTIVE' };
+const LAMP_SIDES = ['L', 'R', 'A'];
 
 function defaultState() {
   return {
     lang: 'en', view: 'edit', fps: 30,
     rois: {},
     red: { ...PL.DEFAULT_RED },
-    lamps: { L: { thr: 0.2, on: null, off: null }, R: { thr: 0.2, on: null, off: null } }
+    green: { ...PL.DEFAULT_GREEN },
+    lamps: { L: { thr: 0.2, on: null, off: null }, R: { thr: 0.2, on: null, off: null }, A: { thr: 0.2, on: null, off: null } },
+    scan: { mode: 'play', seekFps: 5, playRate: 4, gate: true, mergeGap: 0.5, minDuration: 0.3 }
   };
 }
 
@@ -572,8 +847,20 @@ function sanitizeSettings(src, base) {
   if (src.red && typeof src.red === 'object') {
     for (const k of Object.keys(PL.DEFAULT_RED)) if (Number.isFinite(src.red[k])) s.red[k] = src.red[k];
   }
+  if (src.green && typeof src.green === 'object') {
+    for (const k of Object.keys(PL.DEFAULT_GREEN)) if (Number.isFinite(src.green[k])) s.green[k] = src.green[k];
+  }
+  if (src.scan && typeof src.scan === 'object') {
+    const c = src.scan;
+    if (c.mode === 'play' || c.mode === 'seek') s.scan.mode = c.mode;
+    if (Number.isFinite(c.seekFps) && c.seekFps > 0 && c.seekFps <= 60) s.scan.seekFps = c.seekFps;
+    if ([2, 4, 6, 8].includes(c.playRate)) s.scan.playRate = c.playRate;
+    if (typeof c.gate === 'boolean') s.scan.gate = c.gate;
+    if (Number.isFinite(c.mergeGap) && c.mergeGap >= 0) s.scan.mergeGap = c.mergeGap;
+    if (Number.isFinite(c.minDuration) && c.minDuration >= 0) s.scan.minDuration = c.minDuration;
+  }
   if (src.lamps && typeof src.lamps === 'object') {
-    for (const side of ['L', 'R']) {
+    for (const side of LAMP_SIDES) {
       const l = src.lamps[side]; if (!l) continue;
       if (Number.isFinite(l.thr)) s.lamps[side].thr = PL.clamp(l.thr, 0, 1);
       s.lamps[side].on = Number.isFinite(l.on) ? l.on : null;
@@ -599,7 +886,8 @@ function scheduleSave() {
 }
 
 // Video runtime state (not persisted)
-let V = { file: null, url: null, meta: null, ready: false, pendingSeek: null, scores: { L: null, R: null }, expectKey: null };
+let V = { file: null, url: null, meta: null, ready: false, pendingSeek: null, scores: { L: null, R: null, A: null }, expectKey: null,
+          samples: [], events: [], selEvent: null, dirty: false, pendingSamples: null };
 
 
 /* =====================================================================
@@ -617,8 +905,9 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
   document.querySelectorAll('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
-  renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps();
+  renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps(); renderEvents(); renderScanInfo(); drawChart();
 }
 
 let toastTimer = null;
@@ -676,7 +965,8 @@ function openVideoFile(f) {
   if (!f) return;
   if (V.url) URL.revokeObjectURL(V.url);
   V.file = f; V.url = URL.createObjectURL(f); V.meta = null; V.ready = false; V.pendingSeek = null;
-  V.scores = { L: null, R: null };
+  V.scores = { L: null, R: null, A: null };
+  V.samples = []; V.events = []; V.selEvent = null; V.dirty = false;
   $('stage').hidden = true; $('dropHint').hidden = false;
   updateStatus(t('statusLoading', { name: f.name }));
   vid.src = V.url;          // streamed by the browser from disk; never read into JS memory
@@ -702,6 +992,8 @@ vid.addEventListener('loadedmetadata', () => {
     if (mm.length) toast(t('mismatchTitle') + ' (' + mm.join(', ') + ')', true);
     V.expectKey = null;
   }
+  if (V.pendingSamples) { V.samples = V.pendingSamples; V.pendingSamples = null; }
+  extractNow();
   if ('requestVideoFrameCallback' in vid) vid.requestVideoFrameCallback(onVideoFrame);
   else toast(t('msgNoRvfc'), true);
 });
@@ -816,7 +1108,8 @@ function grabRoi(roi, maxDim) {
 
 function scoreLamp(side) {
   const img = grabRoi(S.rois[LAMP_ROI[side]], 64);
-  return img ? PL.redScore(img.data, S.red) : null;
+  if (!img) return null;
+  return side === 'A' ? PL.greenScore(img.data, S.green) : PL.redScore(img.data, S.red);
 }
 
 let refreshQueued = false;
@@ -827,12 +1120,13 @@ function scheduleRefresh() {
 }
 function refreshLive() {
   if (!V.ready || vid.readyState < 2) return;
-  V.scores.L = scoreLamp('L'); V.scores.R = scoreLamp('R');
-  renderLamps(); updateThumbs(); updateTimeUI();
+  if (SCAN.running) { scheduleChart(); return; }   // the scan updates meters itself
+  for (const side of LAMP_SIDES) V.scores[side] = scoreLamp(side);
+  renderLamps(); updateThumbs(); updateTimeUI(); scheduleChart();
 }
 
 function renderLamps() {
-  for (const side of ['L', 'R']) {
+  for (const side of LAMP_SIDES) {
     const sc = V.scores[side], thr = S.lamps[side].thr, on = PL.lampIsOn(sc, thr);
     const has = Number.isFinite(sc);
     const m = document.querySelector(`.meter[data-side="${side}"]`);
@@ -879,10 +1173,10 @@ function sampleLamp(side, which) {
   if (Number.isFinite(l.on) && Number.isFinite(l.off)) {
     const thr = PL.thresholdFromSamples(l.on, l.off);
     if (thr == null) toast(t('msgOnLeOff', { on: l.on.toFixed(3), off: l.off.toFixed(3) }), true);
-    else { l.thr = thr; toast(t('msgThrSet', { lamp: t(side === 'L' ? 'lampL' : 'lampR'), thr: thr.toFixed(3) })); }
+    else { l.thr = thr; toast(t('msgThrSet', { lamp: t('lamp' + side), thr: thr.toFixed(3) })); }
   }
   V.scores[side] = sc;
-  renderLamps(); scheduleSave();
+  renderLamps(); scheduleSave(); scheduleExtract();
 }
 
 
@@ -1016,6 +1310,333 @@ overlay.addEventListener('pointercancel', e => endDrag(e, true));
 
 
 /* =====================================================================
+   SCAN (seek mode + play mode)
+   ===================================================================== */
+let SCAN = { running: false, cancel: false, buf: [] };
+
+function missingScanRois() {
+  const need = ['LEFT_LAMP', 'RIGHT_LAMP'].concat(S.scan.gate ? ['BSD_ACTIVE'] : []);
+  return need.filter(k => !S.rois[k]);
+}
+function fmtDur(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, p2 = n => String(n).padStart(2, '0');
+  return (h ? h + ':' + p2(m) : m) + ':' + p2(s);
+}
+
+function takeSample(tt) {
+  SCAN.buf.push({ t: tt, L: scoreLamp('L'), R: scoreLamp('R'), A: S.rois.BSD_ACTIVE ? scoreLamp('A') : null });
+  SCAN.lastT = tt;
+}
+
+function scanUi(tNow, force) {
+  const now = performance.now();
+  if (!force && now - SCAN.lastUi < 200) return;
+  SCAN.lastUi = now;
+  const span = SCAN.to - SCAN.from;
+  const pct = span > 0 ? PL.clamp((tNow - SCAN.from) / span, 0, 1) : 1;
+  $('scanBar').style.width = (pct * 100).toFixed(1) + '%';
+  const eta = PL.scanEta(SCAN.from, SCAN.to, tNow, (now - SCAN.t0) / 1000);
+  $('scanInfo').textContent = t('scanProgress', { pct: (pct * 100).toFixed(1), t: PL.fmtVideoTime(tNow),
+    to: PL.fmtVideoTime(SCAN.to), eta: eta == null ? '…' : fmtDur(eta), n: SCAN.buf.length });
+  const last = SCAN.buf[SCAN.buf.length - 1];
+  if (last) { V.scores.L = last.L; V.scores.R = last.R; V.scores.A = last.A; renderLamps(); }
+  updateTimeUI(tNow);
+  drawChart();
+}
+
+// Seek and resolve once the new frame is ready to be drawn.
+function waitSeek(tSec) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const fin = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
+    const guard = setTimeout(() => { if (!done) { done = true; reject(new Error('seek timeout at ' + PL.fmtVideoTime(tSec))); } }, 30000);
+    vid.addEventListener('seeked', () => {
+      if ('requestVideoFrameCallback' in vid) { vid.requestVideoFrameCallback(fin); setTimeout(fin, 200); } else fin();
+    }, { once: true });
+    vid.currentTime = tSec;
+  });
+}
+function waitVisible() {
+  if (!document.hidden) return Promise.resolve();
+  toast(t('scanHidden'), true);
+  return new Promise(res => {
+    const h = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', h); res(); } };
+    document.addEventListener('visibilitychange', h);
+  });
+}
+
+// Deterministic: one seek per sample.
+async function scanSeek() {
+  const dt = 1 / S.scan.seekFps;
+  const n = Math.floor((SCAN.to - SCAN.from) / dt + 1e-9);
+  for (let i = 0; i <= n && !SCAN.cancel; i++) {
+    if (document.hidden) await waitVisible();
+    const tt = Math.min(SCAN.to, SCAN.from + i * dt);   // index-based: no float drift
+    await waitSeek(tt);
+    takeSample(tt);
+    scanUi(tt);
+  }
+}
+
+// Fast: play muted at N× and sample every presented frame.
+async function scanPlay() {
+  await waitSeek(SCAN.from);
+  takeSample(SCAN.from);
+  vid.playbackRate = S.scan.playRate;
+  await new Promise((resolve, reject) => {
+    let finished = false;
+    const finish = err => {
+      if (finished) return;
+      finished = true; vid.pause(); clearInterval(watch);
+      vid.removeEventListener('ended', onEnd); document.removeEventListener('visibilitychange', onVis);
+      err ? reject(err) : resolve();
+    };
+    const onEnd = () => finish();
+    const onVis = () => {
+      if (document.hidden) { vid.pause(); toast(t('scanHidden'), true); }
+      else if (!finished) vid.play().catch(finish);
+    };
+    const cb = (now, md) => {
+      if (finished) return;
+      if (SCAN.cancel) return finish();
+      const tt = md.mediaTime;
+      if (tt > SCAN.to) return finish();
+      if (tt > SCAN.lastT) { takeSample(tt); scanUi(tt); }
+      vid.requestVideoFrameCallback(cb);
+    };
+    const watch = setInterval(() => { if (SCAN.cancel) finish(); }, 250);   // cancel while stalled/hidden
+    vid.addEventListener('ended', onEnd);
+    document.addEventListener('visibilitychange', onVis);
+    vid.requestVideoFrameCallback(cb);
+    if (document.hidden) onVis(); else vid.play().catch(finish);
+  });
+}
+
+function setScanning(on) {
+  document.body.classList.toggle('scanning', on);
+  $('btnScan').disabled = on; $('btnClearScan').disabled = on; $('btnScanCancel').disabled = !on;
+  $('btnOpen').disabled = on; $('btnLoadSession').disabled = on;
+}
+
+async function startScan() {
+  if (SCAN.running) return;
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  if (!('requestVideoFrameCallback' in vid)) return toast(t('msgNoRvfc'), true);
+  const miss = missingScanRois();
+  if (miss.length) return toast(t('scanNeedRoi', { list: miss.join(', ') }), true);
+  const dur = vid.duration;
+  if (!Number.isFinite(dur) || dur <= 0) return toast(t('noDurTitle'), true);
+  const f = PL.parseTime($('scanFrom').value), e = PL.parseTime($('scanTo').value);
+  const from = f == null ? 0 : f, to = e == null ? dur : Math.min(e, dur);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return toast(t('scanBadRange'), true);
+
+  SCAN = { running: true, cancel: false, mode: S.scan.mode, from, to, buf: [], t0: performance.now(), lastUi: 0, lastT: -Infinity };
+  vid.pause(); vid.muted = true;
+  setScanning(true);
+  let err = null;
+  try { if (SCAN.mode === 'seek') await scanSeek(); else await scanPlay(); }
+  catch (x) { err = x; }
+  vid.playbackRate = 1; vid.pause();
+  if (SCAN.buf.length) {
+    V.samples = PL.mergeSamples(V.samples, SCAN.buf, SCAN.from, SCAN.lastT);
+    V.dirty = true;
+  }
+  const secs = ((performance.now() - SCAN.t0) / 1000).toFixed(0), nSamp = SCAN.buf.length, lastT = SCAN.lastT;
+  const cancelled = SCAN.cancel;
+  SCAN.running = false; SCAN.buf = [];
+  setScanning(false);
+  extractNow();
+  $('scanBar').style.width = cancelled || err ? $('scanBar').style.width : '100%';
+  if (err) V.scanMsg = { k: 'scanFailed', v: { why: err.message || String(err) } };
+  else if (cancelled) V.scanMsg = { k: 'scanCancelled', v: { t: PL.fmtVideoTime(lastT) } };
+  else V.scanMsg = { k: 'scanDone', v: { n: V.events.length, s: nSamp, sec: secs } };
+  renderScanInfo();
+  toast(t(V.scanMsg.k, V.scanMsg.v), !!err);
+  if (cancelled && Number.isFinite(lastT)) $('scanFrom').value = PL.fmtVideoTime(lastT);
+  scheduleRefresh();
+}
+function renderScanInfo() {
+  if (SCAN.running) return;
+  $('scanInfo').textContent = V.scanMsg ? t(V.scanMsg.k, V.scanMsg.v) : '';
+}
+
+
+/* =====================================================================
+   EVENTS (re-extracted from stored samples; no rescan needed)
+   ===================================================================== */
+let extractTimer = null;
+function scheduleExtract() { clearTimeout(extractTimer); extractTimer = setTimeout(extractNow, 120); }
+function extractNow() {
+  const gate = S.scan.gate && V.samples.some(s => s.A != null);
+  V.events = PL.extractEvents(V.samples, { thrL: S.lamps.L.thr, thrR: S.lamps.R.thr, thrA: S.lamps.A.thr,
+    gate, mergeGap: S.scan.mergeGap, minDuration: S.scan.minDuration });
+  if (!V.events.some(e => e.id === V.selEvent)) V.selEvent = null;
+  renderEvents(); drawChart();
+}
+function renderEvents() {
+  const box = $('evList'), sum = $('evSummary');
+  if (!V.samples.length) { sum.textContent = ''; box.innerHTML = `<div class="evEmpty">${esc(t('evNoScan'))}</div>`; return; }
+  const nl = V.events.filter(e => e.side === 'L').length, nr = V.events.length - nl;
+  const dur = vid.duration;
+  const cov = Number.isFinite(dur) && dur > 0 ? Math.min(100, PL.coverageSec(V.samples, 1) / dur * 100).toFixed(0) + '%' : '—';
+  sum.textContent = t('evSummary', { n: V.events.length, l: nl, r: nr, cov });
+  if (!V.events.length) { box.innerHTML = `<div class="evEmpty">${esc(t('evNone'))}</div>`; return; }
+  box.innerHTML = V.events.map(e =>
+    `<div class="evRow${e.id === V.selEvent ? ' sel' : ''}" data-id="${e.id}"><span>#${e.id}</span>` +
+    `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span><span>${e.duration.toFixed(2)} s</span></div>`).join('');
+}
+function selectEvent(id) {
+  const e = V.events.find(x => x.id === id);
+  if (!e || SCAN.running) return;
+  V.selEvent = id;
+  const dur = vid.duration, pad = 10;
+  if (Number.isFinite(dur)) {
+    const x0 = Math.max(0, e.tStart - pad), x1 = Math.min(dur, e.tEnd + pad);
+    chartView = x1 - x0 < dur ? [x0, x1] : null;
+  }
+  vid.pause(); requestSeek(e.tStart);
+  renderEvents(); drawChart();
+}
+
+
+/* =====================================================================
+   STRIP CHART (L / R lamp scores, BSD Active strip, events, playhead)
+   ===================================================================== */
+const chart = $('chart'), cctx = chart.getContext('2d');
+let chartView = null;      // [t0, t1] or null = whole video
+let chartDrag = null, chartQueued = false;
+function scheduleChart() {
+  if (chartQueued) return;
+  chartQueued = true;
+  requestAnimationFrame(() => { chartQueued = false; drawChart(); });
+}
+function chartDur() { return V.ready && Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 0; }
+function chartRange() { const d = chartDur(); return d ? (chartView || [0, d]) : null; }
+function chartSamples() {
+  return SCAN.running && SCAN.buf.length ? PL.mergeSamples(V.samples, SCAN.buf, SCAN.from, SCAN.lastT) : V.samples;
+}
+const TICKS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+
+function drawChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(chart.clientWidth * dpr), bh = Math.round(chart.clientHeight * dpr);
+  if (!bw || !bh) return;
+  if (chart.width !== bw || chart.height !== bh) { chart.width = bw; chart.height = bh; }
+  const W = bw, H = bh, c = cctx;
+  c.clearRect(0, 0, W, H);
+  const rg = chartRange();
+  if (!rg) return;
+  const [x0, x1] = rg, span = x1 - x0;
+  const X = tt => (tt - x0) / span * W;
+  const top = 18 * dpr, actH = 6 * dpr, axisH = 16 * dpr;
+  const actY = H - axisH - actH, bot = actY - 3 * dpr, ph = bot - top;
+  const Y = v => bot - PL.clamp(v, 0, 1) * ph;
+
+  // bucket samples per pixel column (max keeps short spikes visible)
+  const sm = chartSamples();
+  const bL = new Float32Array(W).fill(-1), bR = new Float32Array(W).fill(-1);
+  const i0 = Math.max(0, PL.lowerBound(sm, x0) - 1), i1 = Math.min(sm.length, PL.lowerBound(sm, x1) + 1);
+  for (let i = i0; i < i1; i++) {
+    const s = sm[i], px = Math.floor(X(s.t));
+    if (px < 0 || px >= W) continue;
+    if (s.L != null && s.L > bL[px]) bL[px] = s.L;
+    if (s.R != null && s.R > bR[px]) bR[px] = s.R;
+  }
+  const gapPx = Math.max(2, 1.5 / span * W);  // break lines over unscanned gaps > 1.5 s
+  const line = (b, col) => {
+    c.strokeStyle = col; c.lineWidth = 1.5 * dpr; c.beginPath();
+    let last = -1e9;
+    for (let x = 0; x < W; x++) {
+      if (b[x] < 0) continue;
+      if (x - last > gapPx) c.moveTo(x, Y(b[x])); else c.lineTo(x, Y(b[x]));
+      last = x;
+    }
+    c.stroke();
+  };
+  // scanned coverage + BSD Active strip: solid spans between consecutive samples (gaps > 1.5 s left empty)
+  for (let i = i0; i < i1; i++) {
+    const s = sm[i], nx = sm[i + 1];
+    const a = X(s.t), b = nx && nx.t - s.t <= 1.5 ? X(nx.t) : a + 1;
+    if (b < 0 || a > W) continue;
+    const w = Math.max(1, b - a);
+    c.fillStyle = '#151a25'; c.fillRect(a, top, w, ph);
+    c.fillStyle = s.A == null ? '#262b38' : PL.lampIsOn(s.A, S.lamps.A.thr) ? '#2fd158' : '#3a4152';
+    c.fillRect(a, actY, w, actH);
+  }
+  // time grid
+  const step = TICKS.find(s => span / s <= W / (110 * dpr)) || 7200;
+  c.font = `${10 * dpr}px ui-monospace,Consolas,monospace`; c.textBaseline = 'top';
+  for (let tt = Math.ceil(x0 / step) * step; tt <= x1; tt += step) {
+    const x = Math.round(X(tt)) + 0.5;
+    c.fillStyle = '#1d2230'; c.fillRect(x, top, 1, bot - top);
+    c.fillStyle = '#7b8296';
+    const lbl = step < 1 ? PL.fmtVideoTime(tt) : fmtDur(tt);
+    c.fillText(lbl, Math.min(x + 3 * dpr, W - c.measureText(lbl).width - 2), H - axisH + 3 * dpr);
+  }
+
+  // events
+  for (const e of V.events) {
+    if (e.tEnd < x0 || e.tStart > x1) continue;
+    const a = X(e.tStart), w = Math.max(2 * dpr, X(e.tEnd) - a), sel = e.id === V.selEvent;
+    c.fillStyle = e.side === 'L' ? (sel ? 'rgba(255,77,77,.45)' : 'rgba(255,77,77,.2)') : (sel ? 'rgba(255,159,26,.45)' : 'rgba(255,159,26,.2)');
+    c.fillRect(a, top, w, ph);
+  }
+
+  line(bL, '#ff4d4d'); line(bR, '#ff9f1a');
+
+  // thresholds
+  c.setLineDash([4 * dpr, 4 * dpr]); c.lineWidth = 1 * dpr;
+  for (const [side, col] of [['L', '#ff4d4d'], ['R', '#ff9f1a']]) {
+    const y = Math.round(Y(S.lamps[side].thr)) + 0.5;
+    c.strokeStyle = col; c.globalAlpha = 0.6; c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+  }
+  c.globalAlpha = 1; c.setLineDash([]);
+
+  // scan cursor + playhead
+  if (SCAN.running && Number.isFinite(SCAN.lastT)) { c.fillStyle = '#C00000'; c.fillRect(Math.round(X(SCAN.lastT)), top, 2 * dpr, ph + actH + 3 * dpr); }
+  else if (V.ready) { const x = Math.round(X(curTime())); c.fillStyle = '#ffffff'; c.fillRect(x, top - 4 * dpr, 1 * dpr, ph + actH + 7 * dpr); }
+}
+
+function chartTimeAt(clientX) {
+  const rg = chartRange(), b = chart.getBoundingClientRect();
+  return rg ? rg[0] + PL.clamp((clientX - b.left) / b.width, 0, 1) * (rg[1] - rg[0]) : null;
+}
+chart.addEventListener('wheel', e => {
+  const rg = chartRange(); if (!rg) return;
+  e.preventDefault();
+  const d = chartDur(), b = chart.getBoundingClientRect();
+  const f = PL.clamp((e.clientX - b.left) / b.width, 0, 1), tc = rg[0] + f * (rg[1] - rg[0]);
+  const ns = PL.clamp((rg[1] - rg[0]) * (e.deltaY > 0 ? 1.25 : 0.8), 2, d);
+  if (ns >= d) chartView = null;
+  else { const nx0 = PL.clamp(tc - f * ns, 0, d - ns); chartView = [nx0, nx0 + ns]; }
+  drawChart();
+}, { passive: false });
+chart.addEventListener('pointerdown', e => {
+  const rg = chartRange(); if (!rg || e.button !== 0) return;
+  chartDrag = { x: e.clientX, v: rg.slice(), moved: false };
+  chart.setPointerCapture(e.pointerId);
+});
+chart.addEventListener('pointermove', e => {
+  if (!chartDrag) return;
+  const dx = e.clientX - chartDrag.x;
+  if (Math.abs(dx) > 3) chartDrag.moved = true;
+  if (chartDrag.moved && chartView) {
+    const d = chartDur(), span = chartDrag.v[1] - chartDrag.v[0];
+    const nx0 = PL.clamp(chartDrag.v[0] - dx / chart.getBoundingClientRect().width * span, 0, d - span);
+    chartView = [nx0, nx0 + span]; drawChart();
+  }
+});
+chart.addEventListener('pointerup', e => {
+  if (!chartDrag) return;
+  const moved = chartDrag.moved; chartDrag = null;
+  if (!moved && !SCAN.running) { const tt = chartTimeAt(e.clientX); if (tt != null) { vid.pause(); requestSeek(tt); scheduleChart(); } }
+});
+chart.addEventListener('dblclick', () => { chartView = null; drawChart(); });
+new ResizeObserver(() => drawChart()).observe($('chartBox'));
+
+
+/* =====================================================================
    SESSION JSON
    ===================================================================== */
 function downloadText(name, text, mime) {
@@ -1028,12 +1649,15 @@ function buildSession() {
   return {
     app: 'BSD-Event-Analyzer', schema: 1, savedAt: new Date().toISOString(),
     video: V.meta || null,
-    settings: { fps: S.fps, rois: S.rois, red: S.red, lamps: S.lamps }
+    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan },
+    samples: PL.packSamples(V.samples),
+    events: V.events
   };
 }
 function saveSession() {
   const base = V.file ? V.file.name.replace(/\.[^.]+$/, '') : 'bsd';
-  downloadText(base + '_bsd_session.json', JSON.stringify(buildSession(), null, 2), 'application/json');
+  downloadText(base + '_bsd_session.json', JSON.stringify(buildSession()), 'application/json');
+  V.dirty = false;
   toast(t('sessionSaved'));
 }
 function keyText(k) {
@@ -1055,10 +1679,11 @@ async function loadSessionText(text) {
   }
   const keep = { lang: S.lang, view: S.view };
   S = sanitizeSettings({ ...d.settings, ...keep });
-  if (!V.meta && d.video) { V.expectKey = d.video; toast(t('sessionPendingVideo', { a: d.video.name })); }
-  else toast(t('sessionLoaded'));
-  $('fpsIn').value = S.fps; syncRedInputs();
-  renderRoiList(); drawOverlay(); scheduleRefresh(); renderLamps(); scheduleSave();
+  const smp = PL.unpackSamples(d.samples);
+  if (!V.meta && d.video) { V.expectKey = d.video; V.pendingSamples = smp; toast(t('sessionPendingVideo', { a: d.video.name })); }
+  else { V.samples = smp; V.dirty = false; toast(smp.length ? t('scanDataLoaded', { n: smp.length }) : t('sessionLoaded')); }
+  $('fpsIn').value = S.fps; syncRedInputs(); syncScanInputs();
+  renderRoiList(); drawOverlay(); scheduleRefresh(); renderLamps(); extractNow(); scheduleSave();
 }
 
 
@@ -1072,7 +1697,10 @@ function setView(v) {
   if (v === 'edit') requestAnimationFrame(layoutStage);
   scheduleSave();
 }
-function syncRedInputs() { document.querySelectorAll('[data-red]').forEach(el => { el.value = S.red[el.dataset.red]; }); }
+function syncRedInputs() {
+  document.querySelectorAll('[data-red]').forEach(el => { el.value = S.red[el.dataset.red]; });
+  document.querySelectorAll('[data-green]').forEach(el => { el.value = S.green[el.dataset.green]; });
+}
 
 $('btnOpen').onclick = () => $('fileVideo').click();
 $('fileVideo').onchange = e => { openVideoFile(e.target.files[0]); e.target.value = ''; };
@@ -1096,16 +1724,49 @@ window.addEventListener('pointerup', () => { scrubbing = false; });
 document.querySelectorAll('.calib').forEach(c => {
   const side = c.dataset.side;
   c.querySelectorAll('[data-sample]').forEach(b => b.onclick = () => sampleLamp(side, b.dataset.sample));
-  const setThr = v => { v = parseFloat(v); if (Number.isFinite(v)) { S.lamps[side].thr = PL.clamp(v, 0, 1); renderLamps(); scheduleSave(); } };
+  const setThr = v => { v = parseFloat(v); if (Number.isFinite(v)) { S.lamps[side].thr = PL.clamp(v, 0, 1); renderLamps(); scheduleSave(); scheduleExtract(); } };
   c.querySelector('.thrRange').addEventListener('input', e => setThr(e.target.value));
   c.querySelector('.thrNum').addEventListener('change', e => setThr(e.target.value));
 });
 
+function colourChanged() { scheduleSave(); scheduleRefresh(); if (V.samples.length) toast(t('rescanNeeded'), true); }
 document.querySelectorAll('[data-red]').forEach(el => el.addEventListener('change', () => {
   const v = parseFloat(el.value);
-  if (Number.isFinite(v)) { S.red[el.dataset.red] = v; scheduleSave(); scheduleRefresh(); } else el.value = S.red[el.dataset.red];
+  if (Number.isFinite(v)) { S.red[el.dataset.red] = v; colourChanged(); } else el.value = S.red[el.dataset.red];
 }));
-$('btnRedReset').onclick = () => { S.red = { ...PL.DEFAULT_RED }; syncRedInputs(); scheduleSave(); scheduleRefresh(); };
+$('btnRedReset').onclick = () => { S.red = { ...PL.DEFAULT_RED }; syncRedInputs(); colourChanged(); };
+document.querySelectorAll('[data-green]').forEach(el => el.addEventListener('change', () => {
+  const v = parseFloat(el.value);
+  if (Number.isFinite(v)) { S.green[el.dataset.green] = v; colourChanged(); } else el.value = S.green[el.dataset.green];
+}));
+$('btnGreenReset').onclick = () => { S.green = { ...PL.DEFAULT_GREEN }; syncRedInputs(); colourChanged(); };
+
+// scan settings
+function syncScanInputs() {
+  document.querySelectorAll('#scanModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.scan.mode));
+  $('scanSeekFps').value = S.scan.seekFps; $('scanPlayRate').value = String(S.scan.playRate);
+  $('scanSeekFps').disabled = S.scan.mode !== 'seek'; $('scanPlayRate').disabled = S.scan.mode !== 'play';
+  $('scanGate').checked = S.scan.gate;
+  $('evMergeGap').value = S.scan.mergeGap; $('evMinDur').value = S.scan.minDuration;
+}
+document.querySelectorAll('#scanModeSeg button').forEach(b => b.onclick = () => { S.scan.mode = b.dataset.mode; syncScanInputs(); scheduleSave(); });
+$('scanSeekFps').onchange = e => { const v = parseFloat(e.target.value); if (v > 0 && v <= 60) S.scan.seekFps = v; syncScanInputs(); scheduleSave(); };
+$('scanPlayRate').onchange = e => { S.scan.playRate = parseInt(e.target.value, 10); scheduleSave(); };
+$('scanGate').onchange = e => { S.scan.gate = e.target.checked; scheduleSave(); scheduleExtract(); };
+$('evMergeGap').onchange = e => { const v = parseFloat(e.target.value); if (v >= 0) S.scan.mergeGap = v; syncScanInputs(); scheduleSave(); scheduleExtract(); };
+$('evMinDur').onchange = e => { const v = parseFloat(e.target.value); if (v >= 0) S.scan.minDuration = v; syncScanInputs(); scheduleSave(); scheduleExtract(); };
+$('btnScan').onclick = startScan;
+$('btnScanCancel').onclick = () => { SCAN.cancel = true; };
+$('btnClearScan').onclick = async () => {
+  if (!V.samples.length) return;
+  const ok = await showModal(t('clearScan'), esc(t('clearScanConfirm')),
+    [{ label: t('cancel'), value: false }, { label: t('clearScan'), value: true, primary: true }]);
+  if (!ok) return;
+  V.samples = []; V.dirty = false; V.scanMsg = null; $('scanBar').style.width = '0';
+  renderScanInfo(); extractNow();
+};
+$('evList').addEventListener('click', e => { const r = e.target.closest('.evRow'); if (r) selectEvent(+r.dataset.id); });
+window.addEventListener('beforeunload', e => { if (V.dirty && V.samples.length) { e.preventDefault(); e.returnValue = ''; } });
 
 // drag & drop a video onto the stage
 const sb = $('stageBox');
@@ -1113,13 +1774,14 @@ sb.addEventListener('dragover', e => { e.preventDefault(); sb.classList.add('dra
 sb.addEventListener('dragleave', () => sb.classList.remove('dragover'));
 sb.addEventListener('drop', e => {
   e.preventDefault(); sb.classList.remove('dragover');
-  const f = e.dataTransfer.files[0]; if (f) openVideoFile(f);
+  const f = e.dataTransfer.files[0]; if (f && !SCAN.running) openVideoFile(f);
 });
 
 document.addEventListener('keydown', e => {
   if (e.target.closest('input,textarea,select') || !$('modal').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
   if (S.view !== 'edit') return;
   const k = e.key;
+  if (SCAN.running) { if (k === 'Escape') SCAN.cancel = true; return; }
   if (k === ' ') { e.preventDefault(); togglePlay(); }
   else if (k === ',') step('-1f');
   else if (k === '.') step('1f');
@@ -1129,6 +1791,7 @@ document.addEventListener('keydown', e => {
 });
 
 syncRedInputs();
+syncScanInputs();
 setView(S.view);
 applyI18n();
 </script>
