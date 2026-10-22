@@ -303,6 +303,83 @@ section('extractEvents throughput (perf sanity)', () => {
   console.log(`      (${s.length} samples -> ${ev.length} events in ${ms.toFixed(1)} ms)`);
 });
 
+// ---------------- Phase 3 ----------------
+section('clock parsing + formatting', () => {
+  ok(PL.parseClock('11:36:48 AM') === 11 * 3600 + 36 * 60 + 48, '12 h AM');
+  ok(PL.parseClock('11:36:48 pm') === 23 * 3600 + 36 * 60 + 48, '12 h PM, lower case');
+  ok(PL.parseClock('12:00:05 AM') === 5, '12 AM is midnight');
+  ok(PL.parseClock('12:00:05 PM') === 12 * 3600 + 5, '12 PM is noon');
+  ok(PL.parseClock('23:05:01') === 83101, '24 h');
+  ok(PL.parseClock('7:05') === 7 * 3600 + 300, 'H:MM');
+  ok(PL.parseClock('11:36:48.5') === 41808.5, 'fractional seconds');
+  ok(PL.parseClock('') === null, 'empty -> null');
+  for (const bad of ['24:00:00', '13:00 PM', '0:10 AM', '10:60', '10:00:60', 'abc', '1:2:3'])
+    ok(Number.isNaN(PL.parseClock(bad)), 'invalid: ' + bad);
+  ok(PL.fmtClock(41808.9) === '11:36:48', 'fmtClock truncates');
+  ok(PL.fmtClock(86400 + 5) === '00:00:05' && PL.fmtClock(-5) === '23:59:55', 'fmtClock wraps both ways');
+  ok(PL.fmtClock(NaN) === '--:--:--', 'fmtClock invalid');
+  ok(PL.fmtHMS(116.9) === '00:01:56' && PL.fmtHMS(3723) === '01:02:03' && PL.fmtHMS(0) === '00:00:00', 'fmtHMS (sheet Timeline)');
+  ok(PL.fmtHMS(-1) === '--:--:--', 'fmtHMS invalid');
+});
+
+section('time mapping incl. midnight rollover', () => {
+  const a = { video: 83.0, clock: PL.parseClock('11:36:48 AM') };
+  ok(PL.fmtClock(PL.videoToClock(83, a)) === '11:36:48', 'anchor itself');
+  ok(PL.fmtClock(PL.videoToClock(83 + 3600 + 12.4, a)) === '12:37:00', 'one hour later');
+  ok(PL.fmtClock(PL.videoToClock(0, a)) === '11:35:25', 'before the anchor');
+  const late = { video: 10, clock: PL.parseClock('23:59:50') };
+  ok(PL.fmtClock(PL.videoToClock(15, late)) === '23:59:55', 'before midnight');
+  ok(PL.fmtClock(PL.videoToClock(20, late)) === '00:00:00', 'exactly midnight');
+  ok(PL.fmtClock(PL.videoToClock(85, late)) === '00:01:05', 'rolls past midnight');
+  ok(PL.fmtClock(PL.videoToClock(10 + 2 * 86400 + 30, late)) === '00:00:20', 'multi-day wraps');
+  const early = { video: 100, clock: PL.parseClock('00:00:30') };
+  ok(PL.fmtClock(PL.videoToClock(40, early)) === '23:59:30', 'backwards across midnight');
+  ok(PL.videoToClock(5, null) === null && PL.videoToClock(NaN, a) === null, 'no anchor / bad time -> null');
+});
+
+section('frame count + review window', () => {
+  ok(PL.frameCount(10.0, 10.5, 60) === 30, '0.5 s at 60 fps = 30 frames');
+  ok(PL.frameCount(10, 10, 30) === 0, 'same frame -> 0');
+  ok(PL.frameCount(1 / 30 * 100 + 0.004, 1 / 30 * 117 - 0.004, 30) === 17, 'rounds to frame index');
+  ok(PL.frameCount(11, 10, 30) === null, 'out before in -> null');
+  ok(PL.frameCount(null, 10, 30) === null && PL.frameCount(1, 2, 0) === null, 'missing -> null');
+  const w = PL.eventWindow({ tStart: 2, tEnd: 5 }, 4, 2, 6);
+  ok(w[0] === 0 && w[1] === 6, 'window clamped to video', w);
+  const w2 = PL.eventWindow({ tStart: 100, tEnd: 103 }, 4, 2, 600);
+  ok(w2[0] === 96 && w2[1] === 105, 'window -4/+2', w2);
+  const st = PL.stripTimes(96, 105, 12);
+  ok(st.length === 12 && st[0] === 96 && st[11] === 105 && near(st[1] - st[0], 9 / 11), '12 evenly spaced thumbnails');
+  ok(PL.stripTimes(0, 10, 1)[0] === 5, 'single thumb = middle');
+  ok(PL.KPI.join() === 'overtaking,overtaken,infrastructure,unclear', 'KPI order = hotkeys 1..4');
+});
+
+section('labels survive re-thresholding (matchLabels)', () => {
+  const E = (side, a, b) => ({ side, tStart: a, tEnd: b });
+  const labels = [E('L', 10, 14), E('R', 30, 33), E('L', 50, 51)];
+  // same events, slightly shifted edges
+  ok(PL.matchLabels([E('L', 9.9, 14.2), E('R', 30.1, 33), E('L', 50.1, 51)], labels).join() === '0,1,2', 'shifted edges keep labels');
+  // side must match
+  ok(PL.matchLabels([E('R', 10, 14)], labels).join() === '-1', 'other side does not match');
+  // an event split in two: the bigger piece keeps the label, the other gets none
+  ok(PL.matchLabels([E('L', 10, 11), E('L', 11.6, 14)], labels).join() === '-1,0', 'split: larger overlap wins');
+  // two events merged into one: label with the bigger overlap wins, the other label is orphaned
+  const two = [E('L', 10, 12), E('L', 12.4, 16)];
+  ok(PL.matchLabels([E('L', 10, 16)], two).join() === '1', 'merge: larger overlap label wins');
+  // short event that no longer overlaps but starts close by
+  ok(PL.matchLabels([E('L', 51, 51.8)], labels).join() === '2', 'no overlap but start within 1 s');
+  ok(PL.matchLabels([E('L', 53, 54)], labels).join() === '-1', 'too far -> none');
+  // each label used once
+  ok(PL.matchLabels([E('L', 10, 14), E('L', 10, 14)], [E('L', 10, 14)]).join() === '0,-1', 'label used once');
+  ok(PL.matchLabels([], labels).length === 0 && PL.matchLabels([E('L', 1, 2)], []).join() === '-1', 'empty inputs');
+  // end-to-end: extract, label, re-threshold, re-match
+  const s = timeline(0, 40, 0.2, t => ({ L: inR(t, 5, 9) ? 0.6 : inR(t, 9, 9.6) ? 0.25 : 0, R: inR(t, 20, 24) ? 0.7 : 0, A: 1 }));
+  const ev1 = PL.extractEvents(s, OPTS);
+  const lab = ev1.map(e => ({ side: e.side, tStart: e.tStart, tEnd: e.tEnd, kpi: e.side === 'L' ? 'overtaken' : 'overtaking' }));
+  const ev2 = PL.extractEvents(s, { ...OPTS, thrL: 0.2 });           // L event now lasts longer
+  const m = PL.matchLabels(ev2, lab);
+  ok(ev2.length === 2 && m.every(i => i >= 0) && lab[m[0]].kpi === 'overtaken' && lab[m[1]].kpi === 'overtaking', 'labels follow events after threshold change', { ev2, m });
+});
+
 section('redScore throughput (perf sanity)', () => {
   const img = lampImage(64 * 64, 0.5, 20, 9);
   const t0 = process.hrtime.bigint();

@@ -119,13 +119,68 @@
   .sbtn:disabled{opacity:.4;cursor:default;}
   #evSummary{font-size:12px;color:#444;margin-bottom:6px;}
   #evList{max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:7px;}
-  .evRow{display:grid;grid-template-columns:34px 22px 1fr 64px;gap:6px;padding:3px 8px;font:12px ui-monospace,Consolas,monospace;cursor:pointer;border-bottom:1px solid #f0f2f6;}
+  .evRow{display:grid;grid-template-columns:30px 16px 1fr 58px auto;align-items:center;gap:6px;padding:3px 8px;font:12px ui-monospace,Consolas,monospace;cursor:pointer;border-bottom:1px solid #f0f2f6;}
   .evRow:hover{background:#f4f6fb;}
   .evRow.sel{background:#fde8e8;}
   .evRow .sd{font-weight:700;}
   .evRow .sd.L{color:#d42a24;} .evRow .sd.R{color:#d97706;}
   .evEmpty{padding:10px;color:#8a90a2;font-size:12px;}
   .chk{display:flex;align-items:center;gap:6px;margin:6px 0;}
+
+  /* ---- review view ---- */
+  .review{flex:1;display:flex;min-height:0;}
+  .rvList{flex:0 0 290px;border-right:1px solid var(--line);display:flex;flex-direction:column;background:#fff;min-height:0;}
+  .rvListHead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;}
+  .rvProgress{font-size:12px;color:#444;}
+  #rvEvents{flex:1;overflow-y:auto;}
+  .rvRow{display:grid;grid-template-columns:30px 16px 1fr auto;gap:1px 6px;padding:5px 10px;border-bottom:1px solid #f0f2f6;cursor:pointer;font:12px ui-monospace,Consolas,monospace;align-items:center;}
+  .rvRow:hover{background:#f4f6fb;}
+  .rvRow.sel{background:#fde8e8;}
+  .rvRow .sd{font-weight:700;} .rvRow .sd.L{color:#d42a24;} .rvRow .sd.R{color:#d97706;}
+  .rvRow .sub{grid-column:3/5;color:#6b7286;font-size:11px;}
+  .kb{font:600 10.5px -apple-system,"Segoe UI",sans-serif;padding:1px 6px;border-radius:4px;color:#fff;white-space:nowrap;}
+  .kb.none{background:#eceff5;color:#8a90a2;}
+  .rvMain{flex:1;display:flex;flex-direction:column;min-width:0;background:#0f1218;color:#dfe3ee;}
+  .rvHead{padding:7px 12px;background:var(--shell);font-size:13px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;min-height:34px;}
+  .rvHead b{color:#fff;}
+  .rvPlayerBox{flex:1;min-height:120px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .rvCrop{position:relative;overflow:hidden;background:#000;}
+  .rvCrop video{position:absolute;max-width:none;display:block;}
+  .rvTime{position:absolute;left:8px;top:6px;font:12px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.65);padding:2px 7px;border-radius:4px;}
+  .rvEmpty{position:absolute;color:#9aa2b5;font-size:14px;}
+  .rvCtl{display:flex;gap:6px;align-items:center;padding:6px 10px;background:var(--shell);flex-wrap:wrap;border-top:1px solid var(--shell-line);}
+  #rvWin{flex:1;min-width:200px;height:28px;cursor:pointer;}
+  .rvCtl input[type=number]{width:52px;}
+  .dsel{background:var(--shell2);color:#fff;border:1px solid var(--shell-line);border-radius:5px;padding:2px 4px;font:12px ui-monospace,Consolas,monospace;}
+  .rvStrip{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:6px 10px 8px;background:#161a24;flex:0 0 auto;}
+  .rvStrip .th{position:relative;cursor:pointer;}
+  .rvStrip canvas{width:100%;display:block;border-radius:3px;background:#000;border:2px solid transparent;aspect-ratio:16/9;}
+  .rvStrip .th.ev canvas{border-color:rgba(255,77,77,.75);}
+  .rvStrip .th.R.ev canvas{border-color:rgba(255,159,26,.85);}
+  .rvStrip .th.pending canvas{background:repeating-linear-gradient(45deg,#1b2030 0 8px,#222839 8px 16px);}
+  .rvStrip .th.pending::after{content:attr(data-loading);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#7b8296;font-size:11px;pointer-events:none;}
+  .rvStrip .th span{position:absolute;left:4px;bottom:4px;font:10.5px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.65);padding:0 4px;border-radius:3px;}
+  .rvSide{flex:0 0 330px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;}
+  .kpiBtns{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .kpiBtn{all:unset;cursor:pointer;border:2px solid #d5d9e4;border-radius:8px;padding:7px 8px;text-align:center;font-weight:600;font-size:12.5px;line-height:1.3;}
+  .kpiBtn small{display:block;font-weight:400;font-size:10.5px;color:#6b7286;}
+  .kpiBtn kbd{margin-right:4px;}
+  .kpiBtn.on{color:#fff;border-color:transparent;}
+  .kpiBtn.on small{color:#eef;}
+  .kpiBtn.on kbd{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);color:#fff;}
+  .kpiBtn:disabled{opacity:.4;cursor:default;}
+  .measBig{font:700 18px ui-monospace,Consolas,monospace;margin-top:6px;}
+  .measBig small{font:12px ui-monospace,Consolas,monospace;color:#6b7286;display:block;}
+  .measBig.bad{color:var(--red);}
+  .roCap{display:block;max-width:100%;background:#0f1218;border-radius:5px;margin-bottom:6px;}
+  .roCap.empty{display:none;}
+  .fpsIn{width:80px;padding:3px 5px;border:1px solid #cfd4e0;border-radius:5px;font:14px ui-monospace,Consolas,monospace;}
+  .fpsIn.suggested{color:#8a90a2;font-style:italic;}
+  #rvNote{width:100%;border:1px solid #cfd4e0;border-radius:6px;padding:5px;font:inherit;resize:vertical;}
+  .roGrid{display:grid;grid-template-columns:62px 1fr;gap:6px 8px;align-items:center;font:11px ui-monospace,Consolas,monospace;color:#555;}
+  .roGrid canvas{max-width:100%;background:#0f1218;border-radius:4px;}
+  .offscreenVid{position:fixed;left:-20px;top:-20px;width:4px;height:4px;opacity:0;pointer-events:none;}
+  .evRow .kb{font-size:9.5px;}
 
   /* ---- report view ---- */
   .report{flex:1;overflow:auto;padding:24px;}
@@ -155,7 +210,7 @@
     <button class="tbtn primary" id="btnOpen" data-i18n="openVideo"></button>
     <input type="file" id="fileVideo" accept="video/*,.mkv,.mp4,.mov,.webm,.m4v,.avi" hidden>
     <div class="seg" id="viewSeg">
-      <button data-view="edit" data-i18n="viewEdit"></button><button data-view="report" data-i18n="viewReport"></button>
+      <button data-view="edit" data-i18n="viewEdit"></button><button data-view="review" data-i18n="viewReview"></button><button data-view="report" data-i18n="viewReport"></button>
     </div>
     <button class="tbtn" id="btnSaveSession" data-i18n="saveSession"></button>
     <button class="tbtn" id="btnLoadSession" data-i18n="loadSession"></button>
@@ -308,6 +363,94 @@
   </main>
 
   <!-- ================= REPORT VIEW ================= -->
+  <!-- ================= REVIEW VIEW ================= -->
+  <main class="review" id="viewReview" hidden>
+    <aside class="rvList">
+      <div class="rvListHead">
+        <span class="segL" id="rvFilterSeg">
+          <button data-f="all" data-i18n="rvFilterAll"></button><button data-f="todo" data-i18n="rvFilterTodo"></button><button data-f="L">L</button><button data-f="R">R</button>
+        </span>
+        <div id="rvProgress" class="rvProgress"></div>
+      </div>
+      <div id="rvEvents"></div>
+      <div id="rvOrphans" class="hint" style="padding:6px 10px;margin:0"></div>
+    </aside>
+
+    <section class="rvMain">
+      <div class="rvHead" id="rvHead"></div>
+      <div class="rvPlayerBox" id="rvPlayerBox">
+        <div class="rvCrop" id="rvCrop"><video id="rvid" muted playsinline preload="auto"></video></div>
+        <div class="rvTime" id="rvTime"></div>
+        <div class="rvEmpty" id="rvEmpty"></div>
+      </div>
+      <div class="rvCtl">
+        <button class="cbtn" id="rvPlay"></button>
+        <button class="cbtn" data-rvstep="-1f" data-i18n="back1f"></button>
+        <button class="cbtn" data-rvstep="1f" data-i18n="fwd1f"></button>
+        <canvas id="rvWin"></canvas>
+        <span class="fpsBox"><span data-i18n="rvSpeed"></span>
+          <select id="rvSpeed" class="dsel"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></span>
+        <span class="fpsBox"><span data-i18n="rvWindow"></span>
+          <input type="number" id="rvPre" min="0" max="30" step="0.5" data-i18n-title="rvPre">
+          <input type="number" id="rvPost" min="0" max="30" step="0.5" data-i18n-title="rvPost"></span>
+        <label class="fpsBox"><input type="checkbox" id="rvFull"><span data-i18n="rvFull"></span></label>
+      </div>
+      <div class="rvStrip" id="rvStrip"></div>
+    </section>
+
+    <aside class="rvSide">
+      <div class="card">
+        <h3 data-i18n="rvKpiTitle"></h3>
+        <div class="kpiBtns" id="kpiBtns"></div>
+        <label class="chk"><input type="checkbox" id="rvAuto"><span data-i18n="rvAutoAdvance"></span></label>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rvMeasTitle"></h3>
+        <p class="hint" data-i18n="rvMarkHint"></p>
+        <div class="crow">
+          <button class="sbtn pri" id="rvMarkIn" data-i18n="rvMarkIn"></button><span class="v" id="rvInVal">—</span>
+          <button class="sbtn pri" id="rvMarkOut" data-i18n="rvMarkOut"></button><span class="v" id="rvOutVal">—</span>
+          <button class="sbtn" id="rvClearMarks" data-i18n="clearLbl"></button>
+        </div>
+        <div class="measBig" id="rvFrames">—</div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rvFpsTitle"></h3>
+        <p class="hint" id="rvFpsHint"></p>
+        <canvas id="rvFpsCap" class="roCap"></canvas>
+        <div class="crow">
+          <input type="number" id="rvFps" min="1" max="240" step="0.1" class="fpsIn">
+          <span class="v" id="rvFpsTag"></span>
+          <button class="sbtn" id="rvFpsGrab" data-i18n="rvFpsCapture"></button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rvNoteTitle"></h3>
+        <textarea id="rvNote" rows="2"></textarea>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rvReadTitle"></h3>
+        <div class="roGrid" id="rvReadouts"></div>
+      </div>
+      <div class="card">
+        <h3 data-i18n="rvAnchorTitle"></h3>
+        <p class="hint" data-i18n="rvAnchorHint"></p>
+        <canvas id="rvAnchorCap" class="roCap"></canvas>
+        <div class="grid2">
+          <label for="rvAnchorVideo" data-i18n="rvAnchorVideo"></label><input type="text" id="rvAnchorVideo" placeholder="0:00.000">
+          <label for="rvAnchorClock" data-i18n="rvAnchorClock"></label><input type="text" id="rvAnchorClock" placeholder="11:36:48 AM">
+        </div>
+        <div class="crow" style="margin-top:6px">
+          <button class="sbtn" id="rvUseFrame" data-i18n="rvUseFrame"></button>
+          <button class="sbtn" id="rvAnchorClear" data-i18n="clearLbl"></button>
+        </div>
+        <div class="hint" id="rvAnchorState" style="margin:4px 0 0"></div>
+      </div>
+      <div class="card"><h3 data-i18n="shortcutsTitle"></h3><p class="hint" style="margin:0" data-i18n-html="rvKeys"></p></div>
+    </aside>
+  </main>
+  <video id="fvid" muted preload="auto" playsinline class="offscreenVid"></video>
+
   <main class="report" id="viewReport" hidden>
     <div class="card"><h3 data-i18n="viewReport"></h3><p class="hint" data-i18n="reportPlaceholder"></p></div>
   </main>
@@ -593,7 +736,76 @@ const PureLogic = (function () {
     return Math.max(0, (to - t) * elapsedSec / done);
   }
 
-  return { DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
+  // ---- Review: KPI, clock mapping, frame count, label matching ----
+  const KPI = ['overtaking', 'overtaken', 'infrastructure', 'unclear'];   // hotkeys 1..4
+
+  // Video seconds -> "HH:MM:SS" (whole seconds, truncated) for the KPI sheet's Timeline column.
+  function fmtHMS(sec) {
+    if (!Number.isFinite(sec) || sec < 0) return '--:--:--';
+    const s = Math.floor(sec + 1e-6), p2 = n => String(n).padStart(2, '0');
+    return p2(Math.floor(s / 3600)) + ':' + p2(Math.floor(s % 3600 / 60)) + ':' + p2(s % 60);
+  }
+  // "11:36:48 AM", "23:05:01", "7:05 pm", "11:36:48.5" -> seconds since midnight; "" -> null; invalid -> NaN
+  function parseClock(str) {
+    const s = String(str == null ? '' : str).trim().toUpperCase();
+    if (!s) return null;
+    const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d+)?))?\s*(AM|PM)?$/);
+    if (!m) return NaN;
+    let h = +m[1];
+    const mi = +m[2], se = m[3] ? +m[3] : 0, ap = m[4];
+    if (mi > 59 || se >= 60) return NaN;
+    if (ap) { if (h < 1 || h > 12) return NaN; h = h % 12 + (ap === 'PM' ? 12 : 0); }
+    else if (h > 23) return NaN;
+    return h * 3600 + mi * 60 + se;
+  }
+  // seconds since midnight (any value, wraps) -> "HH:MM:SS" 24 h
+  function fmtClock(sec) {
+    if (!Number.isFinite(sec)) return '--:--:--';
+    return fmtHMS(((sec % 86400) + 86400) % 86400);
+  }
+  // anchor {video, clock}: video time `video` shows wall clock `clock` (s since midnight).
+  function videoToClock(t, anchor) {
+    if (!anchor || !Number.isFinite(anchor.video) || !Number.isFinite(anchor.clock) || !Number.isFinite(t)) return null;
+    return (((anchor.clock + t - anchor.video) % 86400) + 86400) % 86400;
+  }
+  // Recording frames between Mark In and Mark Out; null if missing or Out before In.
+  function frameCount(tIn, tOut, fps) {
+    if (![tIn, tOut, fps].every(Number.isFinite) || fps <= 0) return null;
+    const n = Math.round(tOut * fps) - Math.round(tIn * fps);
+    return n < 0 ? null : n;
+  }
+  // Review window around an event, clamped to the video.
+  function eventWindow(ev, pre, post, dur) {
+    const end = Number.isFinite(dur) ? dur : Infinity;
+    return [Math.max(0, ev.tStart - pre), Math.min(end, ev.tEnd + post)];
+  }
+  function stripTimes(w0, w1, n) {
+    if (n <= 1) return [(w0 + w1) / 2];
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(w0 + (w1 - w0) * i / (n - 1));
+    return out;
+  }
+  // Re-attach saved labels ({side,tStart,tEnd}) to freshly extracted events.
+  // Same side; best time overlap wins; without overlap, starts within `tol` s count weakly.
+  // Each label is used at most once. Returns label index per event (-1 = none).
+  function matchLabels(events, labels, tol) {
+    tol = tol == null ? 1 : tol;
+    const pairs = [];
+    events.forEach((e, ei) => labels.forEach((l, li) => {
+      if (!l || l.side !== e.side) return;
+      const ov = Math.min(e.tEnd, l.tEnd) - Math.max(e.tStart, l.tStart);
+      const d = Math.abs(e.tStart - l.tStart);
+      if (ov > 0) pairs.push([ov + 1, ei, li]);
+      else if (d <= tol) pairs.push([1 / (1 + d), ei, li]);
+    }));
+    pairs.sort((a, b) => b[0] - a[0]);
+    const evOut = events.map(() => -1), used = new Set();
+    for (const [, ei, li] of pairs) if (evOut[ei] < 0 && !used.has(li)) { evOut[ei] = li; used.add(li); }
+    return evOut;
+  }
+
+  return { KPI, fmtHMS, parseClock, fmtClock, videoToClock, frameCount, eventWindow, stripTimes, matchLabels,
+           DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
            rectFromPoints, clampNormRect, moveRect, normToPx, fmtVideoTime, snapFps, estimateFps,
            sessionKey, sessionKeyMismatch,
            DEFAULT_GREEN, isHueInRangeRgb, greenScore, parseTime, lowerBound, mergeSamples,
@@ -669,6 +881,27 @@ const I18N = {
     evSummary: '{n} events · L {l} · R {r} · scanned {cov}', evNone: 'No events. Lower the thresholds or check the ROIs.',
     evNoScan: 'No scan data yet.', rescanNeeded: 'Colour settings changed: rescan to apply them to existing scan data.',
     clearScanConfirm: 'Delete all scan data for this video?', scanDataLoaded: 'Scan data loaded: {n} samples.',
+    viewReview: 'Review', roi_RL_FPS: 'RL camera title bar (FPS capture)', roi_RR_FPS: 'RR camera title bar (FPS capture)',
+    rvFilterAll: 'All', rvFilterTodo: 'To do', rvProgress: 'Labeled {done} / {n}  ·  L {dl}/{nl}  ·  R {dr}/{nr}',
+    rvNoEvents: 'No events yet. Run a scan in the Edit view first.', rvSelectHint: 'Select an event on the left.',
+    rvOrphans: '{n} saved label(s) match no current event (thresholds changed). They return if the event reappears.',
+    kpi_overtaking: 'Overtaking', kpi_overtaken: 'Overtaken', kpi_infrastructure: 'Infrastructure', kpi_unclear: 'Unclear',
+    kpiSub_overtaking: 'we pass them', kpiSub_overtaken: 'they pass us', kpiSub_infrastructure: 'no vehicle / false alarm', kpiSub_unclear: 'decide later',
+    rvKpiTitle: 'KPI type', rvAutoAdvance: 'Go to the next event after 1–4',
+    rvMeasTitle: 'Frame count', rvMarkIn: 'Mark In (I)', rvMarkOut: 'Mark Out (O)', clearLbl: 'Clear',
+    rvMarkHint: 'Step to the frame where the vehicle enters the zone and press I, then where it leaves and press O.',
+    rvFramesDur: '{s} s at {fps} fps (recording)', rvMarkBad: 'Mark Out is before Mark In',
+    rvFpsTitle: 'Camera FPS', rvFpsHint: 'Capture of {roi} at the event start. Read the camera fps and type it; it is prefilled from the previous {side} event.',
+    rvFpsCapture: 'Capture current frame', rvFpsNoRoi: 'Draw the {roi} ROI over the {side} camera window title (Edit view) to capture the fps here.',
+    rvSuggested: 'suggested', rvSaved: 'saved',
+    rvNoteTitle: 'Note', rvReadTitle: 'At event start',
+    rvAnchorTitle: 'Clock anchor', rvAnchorHint: 'Pause on a frame and press "Use current frame", read the clock from the capture, and type it. Every event then shows its wall-clock time.',
+    rvAnchorVideo: 'Video time', rvAnchorClock: 'Clock', rvUseFrame: 'Use current frame',
+    rvAnchorSet: 'Anchor: video {v} = clock {c}', rvAnchorNone: 'No anchor set.', rvAnchorBad: 'Invalid time. Video: 1:23.5 · Clock: 11:36:48 or 11:36:48 AM',
+    rvWindow: 'Window ±s', rvPre: 'Seconds before the event', rvPost: 'Seconds after the event', rvSpeed: 'Speed', rvFull: 'Full frame',
+    rvHead: '<b>Event #{id}</b> · {side} · {cam} · {t0} → {t1} ({d} s)', rvClockAt: 'clock {c}',
+    rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> clear KPI · <kbd>←</kbd> <kbd>→</kbd> previous / next event · <kbd>Space</kbd> play/pause · <kbd>,</kbd> <kbd>.</kbd> ±1 frame · <kbd>I</kbd> <kbd>O</kbd> Mark In / Out · <kbd>F</kbd> full frame · <kbd>Esc</kbd> leave text field',
+    rvLoading: 'loading…', rvNoCamRoi: 'Draw {roi} in the Edit view; showing the full frame.',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -733,6 +966,27 @@ const I18N = {
     evSummary: '{n} 个事件 · 左 {l} · 右 {r} · 已扫描 {cov}', evNone: '没有事件。请降低阈值或检查 ROI。',
     evNoScan: '尚无扫描数据。', rescanNeeded: '颜色设置已更改：需重新扫描才会作用于已有扫描数据。',
     clearScanConfirm: '删除此视频的全部扫描数据？', scanDataLoaded: '已载入扫描数据：{n} 个采样。',
+    viewReview: '审阅', roi_RL_FPS: 'RL 摄像头标题栏（帧率截取）', roi_RR_FPS: 'RR 摄像头标题栏（帧率截取）',
+    rvFilterAll: '全部', rvFilterTodo: '待处理', rvProgress: '已标注 {done} / {n}  ·  左 {dl}/{nl}  ·  右 {dr}/{nr}',
+    rvNoEvents: '尚无事件。请先在编辑视图中扫描。', rvSelectHint: '请在左侧选择一个事件。',
+    rvOrphans: '有 {n} 条已保存标注未匹配到当前事件（阈值已更改）。事件重新出现时会自动恢复。',
+    kpi_overtaking: 'Overtaking 超车', kpi_overtaken: 'Overtaken 被超', kpi_infrastructure: 'Infrastructure 设施', kpi_unclear: '不确定',
+    kpiSub_overtaking: '本车超过目标', kpiSub_overtaken: '目标超过本车', kpiSub_infrastructure: '无车辆 / 误报', kpiSub_unclear: '稍后再定',
+    rvKpiTitle: 'KPI 类型', rvAutoAdvance: '按 1–4 后跳到下一个事件',
+    rvMeasTitle: '帧数', rvMarkIn: '标记进入 (I)', rvMarkOut: '标记离开 (O)', clearLbl: '清除',
+    rvMarkHint: '逐帧找到车辆进入区域的帧按 I，离开的帧按 O。',
+    rvFramesDur: '{s} 秒，录屏 {fps} fps', rvMarkBad: '离开标记早于进入标记',
+    rvFpsTitle: '摄像头帧率', rvFpsHint: '事件开始时 {roi} 的截取。读出摄像头帧率并输入；默认沿用上一个{side}侧事件的值。',
+    rvFpsCapture: '截取当前帧', rvFpsNoRoi: '请在编辑视图中于{side}侧摄像头窗口标题处框选 {roi}，即可在此截取帧率。',
+    rvSuggested: '建议值', rvSaved: '已保存',
+    rvNoteTitle: '备注', rvReadTitle: '事件开始时',
+    rvAnchorTitle: '时钟锚点', rvAnchorHint: '暂停在某帧，点“使用当前帧”，从截取图读出时钟并输入。之后每个事件都会显示实际时钟时间。',
+    rvAnchorVideo: '视频时间', rvAnchorClock: '时钟', rvUseFrame: '使用当前帧',
+    rvAnchorSet: '锚点：视频 {v} = 时钟 {c}', rvAnchorNone: '尚未设置锚点。', rvAnchorBad: '时间无效。视频：1:23.5 · 时钟：11:36:48 或 11:36:48 AM',
+    rvWindow: '窗口 ±秒', rvPre: '事件前秒数', rvPost: '事件后秒数', rvSpeed: '倍速', rvFull: '整帧',
+    rvHead: '<b>事件 #{id}</b> · {side} · {cam} · {t0} → {t1}（{d} 秒）', rvClockAt: '时钟 {c}',
+    rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> 清除 KPI · <kbd>←</kbd> <kbd>→</kbd> 上一个 / 下一个事件 · <kbd>空格</kbd> 播放/暂停 · <kbd>,</kbd> <kbd>.</kbd> ±1 帧 · <kbd>I</kbd> <kbd>O</kbd> 标记进入 / 离开 · <kbd>F</kbd> 整帧 · <kbd>Esc</kbd> 离开输入框',
+    rvLoading: '载入中…', rvNoCamRoi: '请在编辑视图中框选 {roi}；当前显示整帧。',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -797,6 +1051,27 @@ const I18N = {
     evSummary: '{n} 個事件 · 左 {l} · 右 {r} · 已掃描 {cov}', evNone: '沒有事件。請降低門檻或檢查 ROI。',
     evNoScan: '尚無掃描資料。', rescanNeeded: '顏色設定已變更：需重新掃描才會套用到既有掃描資料。',
     clearScanConfirm: '刪除此影片的全部掃描資料？', scanDataLoaded: '已載入掃描資料：{n} 個取樣。',
+    viewReview: '審閱', roi_RL_FPS: 'RL 攝影機標題列（影格率擷取）', roi_RR_FPS: 'RR 攝影機標題列（影格率擷取）',
+    rvFilterAll: '全部', rvFilterTodo: '待處理', rvProgress: '已標註 {done} / {n}  ·  左 {dl}/{nl}  ·  右 {dr}/{nr}',
+    rvNoEvents: '尚無事件。請先在編輯檢視中掃描。', rvSelectHint: '請在左側選擇一個事件。',
+    rvOrphans: '有 {n} 筆已儲存標註未對應到目前事件（門檻已變更）。事件重新出現時會自動恢復。',
+    kpi_overtaking: 'Overtaking 超車', kpi_overtaken: 'Overtaken 被超', kpi_infrastructure: 'Infrastructure 設施', kpi_unclear: '不確定',
+    kpiSub_overtaking: '本車超過目標', kpiSub_overtaken: '目標超過本車', kpiSub_infrastructure: '無車輛 / 誤報', kpiSub_unclear: '稍後再定',
+    rvKpiTitle: 'KPI 類型', rvAutoAdvance: '按 1–4 後跳到下一個事件',
+    rvMeasTitle: '影格數', rvMarkIn: '標記進入 (I)', rvMarkOut: '標記離開 (O)', clearLbl: '清除',
+    rvMarkHint: '逐格找到車輛進入區域的影格按 I，離開的影格按 O。',
+    rvFramesDur: '{s} 秒，錄影 {fps} fps', rvMarkBad: '離開標記早於進入標記',
+    rvFpsTitle: '攝影機影格率', rvFpsHint: '事件開始時 {roi} 的擷取。讀出攝影機影格率並輸入；預設沿用上一個{side}側事件的值。',
+    rvFpsCapture: '擷取目前影格', rvFpsNoRoi: '請在編輯檢視中於{side}側攝影機視窗標題處框選 {roi}，即可在此擷取影格率。',
+    rvSuggested: '建議值', rvSaved: '已儲存',
+    rvNoteTitle: '備註', rvReadTitle: '事件開始時',
+    rvAnchorTitle: '時鐘錨點', rvAnchorHint: '暫停在某格，按「使用目前影格」，從擷取圖讀出時鐘並輸入。之後每個事件都會顯示實際時鐘時間。',
+    rvAnchorVideo: '影片時間', rvAnchorClock: '時鐘', rvUseFrame: '使用目前影格',
+    rvAnchorSet: '錨點：影片 {v} = 時鐘 {c}', rvAnchorNone: '尚未設定錨點。', rvAnchorBad: '時間無效。影片：1:23.5 · 時鐘：11:36:48 或 11:36:48 AM',
+    rvWindow: '視窗 ±秒', rvPre: '事件前秒數', rvPost: '事件後秒數', rvSpeed: '倍速', rvFull: '整格',
+    rvHead: '<b>事件 #{id}</b> · {side} · {cam} · {t0} → {t1}（{d} 秒）', rvClockAt: '時鐘 {c}',
+    rvKeys: '<kbd>1</kbd>–<kbd>4</kbd> KPI · <kbd>0</kbd> 清除 KPI · <kbd>←</kbd> <kbd>→</kbd> 上一個 / 下一個事件 · <kbd>空白鍵</kbd> 播放/暫停 · <kbd>,</kbd> <kbd>.</kbd> ±1 格 · <kbd>I</kbd> <kbd>O</kbd> 標記進入 / 離開 · <kbd>F</kbd> 整格 · <kbd>Esc</kbd> 離開輸入框',
+    rvLoading: '載入中…', rvNoCamRoi: '請在編輯檢視中框選 {roi}；目前顯示整格。',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -817,7 +1092,9 @@ const ROI_DEFS = [
   { key: 'SPEED',      req: false, color: '#c084fc' },
   { key: 'CLOCK',      req: false, color: '#f5d90a' },
   { key: 'RL_DIST',    req: false, color: '#22d3ee' },
-  { key: 'RR_DIST',    req: false, color: '#a3e635' }
+  { key: 'RR_DIST',    req: false, color: '#a3e635' },
+  { key: 'RL_FPS',     req: false, color: '#f472b6' },
+  { key: 'RR_FPS',     req: false, color: '#fda4af' }
 ];
 const LAMP_ROI = { L: 'LEFT_LAMP', R: 'RIGHT_LAMP', A: 'BSD_ACTIVE' };
 const LAMP_SIDES = ['L', 'R', 'A'];
@@ -829,7 +1106,9 @@ function defaultState() {
     red: { ...PL.DEFAULT_RED },
     green: { ...PL.DEFAULT_GREEN },
     lamps: { L: { thr: 0.2, on: null, off: null }, R: { thr: 0.2, on: null, off: null }, A: { thr: 0.2, on: null, off: null } },
-    scan: { mode: 'play', seekFps: 5, playRate: 4, gate: true, mergeGap: 0.5, minDuration: 0.3 }
+    scan: { mode: 'play', seekFps: 5, playRate: 4, gate: true, mergeGap: 0.5, minDuration: 0.3 },
+    review: { pre: 4, post: 2, speed: 1, autoAdvance: true, filter: 'all', lastFps: { L: null, R: null } },
+    videos: {}    // per video ("name|size"): { anchor: {video, clock} | null, labels: [...] }
   };
 }
 
@@ -859,6 +1138,18 @@ function sanitizeSettings(src, base) {
     if (Number.isFinite(c.mergeGap) && c.mergeGap >= 0) s.scan.mergeGap = c.mergeGap;
     if (Number.isFinite(c.minDuration) && c.minDuration >= 0) s.scan.minDuration = c.minDuration;
   }
+  if (src.review && typeof src.review === 'object') {
+    const r = src.review, d = s.review;
+    if (Number.isFinite(r.pre) && r.pre >= 0 && r.pre <= 30) d.pre = r.pre;
+    if (Number.isFinite(r.post) && r.post >= 0 && r.post <= 30) d.post = r.post;
+    if ([0.25, 0.5, 1, 2, 4].includes(r.speed)) d.speed = r.speed;
+    if (typeof r.autoAdvance === 'boolean') d.autoAdvance = r.autoAdvance;
+    if (['all', 'todo', 'L', 'R'].includes(r.filter)) d.filter = r.filter;
+    if (r.lastFps) for (const k of ['L', 'R']) d.lastFps[k] = Number.isFinite(r.lastFps[k]) ? r.lastFps[k] : null;
+  }
+  if (src.videos && typeof src.videos === 'object') {
+    for (const [k, v] of Object.entries(src.videos)) { const r = sanitizeReview(v); if (r) s.videos[k] = r; }
+  }
   if (src.lamps && typeof src.lamps === 'object') {
     for (const side of LAMP_SIDES) {
       const l = src.lamps[side]; if (!l) continue;
@@ -868,6 +1159,19 @@ function sanitizeSettings(src, base) {
     }
   }
   return s;
+}
+
+function sanitizeReview(v) {
+  if (!v || typeof v !== 'object') return null;
+  const num = x => (Number.isFinite(x) ? x : null);
+  const out = { anchor: null, labels: [] };
+  if (v.anchor && Number.isFinite(v.anchor.video) && Number.isFinite(v.anchor.clock)) out.anchor = { video: v.anchor.video, clock: v.anchor.clock };
+  if (Array.isArray(v.labels)) for (const l of v.labels) {
+    if (!l || (l.side !== 'L' && l.side !== 'R') || !Number.isFinite(l.tStart) || !Number.isFinite(l.tEnd)) continue;
+    out.labels.push({ side: l.side, tStart: l.tStart, tEnd: l.tEnd, kpi: PL.KPI.includes(l.kpi) ? l.kpi : null,
+      note: typeof l.note === 'string' ? l.note.slice(0, 2000) : '', fps: num(l.fps), markIn: num(l.markIn), markOut: num(l.markOut) });
+  }
+  return out;
 }
 
 function loadLocal() {
@@ -908,6 +1212,8 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
   document.querySelectorAll('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
   renderRoiList(); updatePlayBtn(); updateStatus(); renderLamps(); renderEvents(); renderScanInfo(); drawChart();
+  renderKpiButtons(); renderReviewList(); renderReviewPanel(); layoutCrop(); rvTick();
+  document.querySelectorAll('#rvStrip .th').forEach(th => { th.dataset.loading = t('rvLoading'); });
 }
 
 let toastTimer = null;
@@ -971,6 +1277,8 @@ function openVideoFile(f) {
   updateStatus(t('statusLoading', { name: f.name }));
   vid.src = V.url;          // streamed by the browser from disk; never read into JS memory
   vid.load();
+  rvid.src = V.url; fvid.src = V.url;   // review player + filmstrip capture share the same file
+  RV.sel = null; RV.win = null; RV.token++; RV.cache.clear(); V.labelMap = [];
   clearTimeout(loadTimer);
   loadTimer = setTimeout(() => { if (!V.ready && V.file === f) showCodecHelp('timeout: no metadata after 20 s'); }, 20000);
 }
@@ -1472,7 +1780,12 @@ function extractNow() {
   V.events = PL.extractEvents(V.samples, { thrL: S.lamps.L.thr, thrR: S.lamps.R.thr, thrA: S.lamps.A.thr,
     gate, mergeGap: S.scan.mergeGap, minDuration: S.scan.minDuration });
   if (!V.events.some(e => e.id === V.selEvent)) V.selEvent = null;
+  remapLabels();
   renderEvents(); drawChart();
+  if (S.view === 'review') {
+    if (!V.events.some(e => e.id === RV.sel)) RV.sel = null;
+    renderReviewList(); layoutCrop(); renderReviewPanel();
+  }
 }
 function renderEvents() {
   const box = $('evList'), sum = $('evSummary');
@@ -1484,7 +1797,8 @@ function renderEvents() {
   if (!V.events.length) { box.innerHTML = `<div class="evEmpty">${esc(t('evNone'))}</div>`; return; }
   box.innerHTML = V.events.map(e =>
     `<div class="evRow${e.id === V.selEvent ? ' sel' : ''}" data-id="${e.id}"><span>#${e.id}</span>` +
-    `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span><span>${e.duration.toFixed(2)} s</span></div>`).join('');
+    `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span><span>${e.duration.toFixed(2)} s</span>` +
+    `${kpiBadge((labelOf(e) || {}).kpi)}</div>`).join('');
 }
 function selectEvent(id) {
   const e = V.events.find(x => x.id === id);
@@ -1637,6 +1951,375 @@ new ResizeObserver(() => drawChart()).observe($('chartBox'));
 
 
 /* =====================================================================
+   REVIEW (event list, cropped loop player, filmstrip, KPI, marks, FPS, clock)
+   ===================================================================== */
+const rvid = $('rvid'), fvid = $('fvid');
+const KPI_COLOR = { overtaking: '#2563eb', overtaken: '#7c3aed', infrastructure: '#b45309', unclear: '#6b7280' };
+const CAM_ROI = { L: 'RL_CAM', R: 'RR_CAM' }, FPS_ROI = { L: 'RL_FPS', R: 'RR_FPS' };
+const FULL_ROI = { x: 0, y: 0, w: 1, h: 1 };
+const STRIP_N = 12;
+const RV = { sel: null, win: null, token: 0, cache: new Map(), full: false };
+
+function vkey() { return V.file ? V.file.name + '|' + V.file.size : null; }
+// Per-video review store (labels + clock anchor), created on demand.
+function reviewStore(create) {
+  const k = vkey();
+  if (!k) return null;
+  if (!S.videos[k] && create) S.videos[k] = { anchor: null, labels: [] };
+  return S.videos[k] || null;
+}
+function remapLabels() {
+  const r = reviewStore(false);
+  V.labelMap = r ? PL.matchLabels(V.events, r.labels) : V.events.map(() => -1);
+}
+function labelOf(ev) {
+  const r = reviewStore(false), i = V.labelMap ? V.labelMap[V.events.indexOf(ev)] : -1;
+  return r && i >= 0 ? r.labels[i] : null;
+}
+// Label for an event, created if needed; its times follow the current event.
+function ensureLabel(ev) {
+  if (!V.labelMap || V.labelMap.length !== V.events.length) remapLabels();
+  let lab = labelOf(ev);
+  if (!lab) {
+    const r = reviewStore(true);
+    lab = { side: ev.side, tStart: ev.tStart, tEnd: ev.tEnd, kpi: null, note: '', fps: null, markIn: null, markOut: null };
+    r.labels.push(lab);
+    V.labelMap[V.events.indexOf(ev)] = r.labels.length - 1;
+  }
+  lab.tStart = ev.tStart; lab.tEnd = ev.tEnd;
+  return lab;
+}
+function anchor() { const r = reviewStore(false); return r ? r.anchor : null; }
+function clockText(t) { const c = PL.videoToClock(t, anchor()); return c == null ? '' : PL.fmtClock(c); }
+function kpiBadge(k) {
+  return k ? `<span class="kb" style="background:${KPI_COLOR[k]}">${esc(t('kpi_' + k))}</span>` : '<span class="kb none">—</span>';
+}
+function selEvent() { return V.events.find(e => e.id === RV.sel) || null; }
+function passesFilter(ev) {
+  const f = S.review.filter;
+  if (f === 'L' || f === 'R') return ev.side === f;
+  if (f === 'todo') { const l = labelOf(ev); return !l || !l.kpi; }
+  return true;
+}
+
+// ---------- list ----------
+function renderReviewList() {
+  if (S.view !== 'review') return;
+  document.querySelectorAll('#rvFilterSeg button').forEach(b => b.classList.toggle('on', b.dataset.f === S.review.filter));
+  const box = $('rvEvents');
+  const n = V.events.length;
+  const done = V.events.filter(e => { const l = labelOf(e); return l && l.kpi; });
+  const nl = V.events.filter(e => e.side === 'L').length;
+  const dl = done.filter(e => e.side === 'L').length;
+  $('rvProgress').textContent = n ? t('rvProgress', { done: done.length, n, dl, nl, dr: done.length - dl, nr: n - nl }) : '';
+  if (!n) { box.innerHTML = `<div class="evEmpty">${esc(t('rvNoEvents'))}</div>`; $('rvOrphans').textContent = ''; return; }
+  const fr = S.fps || 30;
+  box.innerHTML = V.events.filter(passesFilter).map(e => {
+    const l = labelOf(e), fc = l ? PL.frameCount(l.markIn, l.markOut, fr) : null, ck = clockText(e.tStart);
+    return `<div class="rvRow${e.id === RV.sel ? ' sel' : ''}" data-id="${e.id}"><span>#${e.id}</span>` +
+      `<span class="sd ${e.side}">${e.side}</span><span>${PL.fmtVideoTime(e.tStart)}</span>${kpiBadge(l && l.kpi)}` +
+      `<span class="sub">${e.duration.toFixed(2)} s${ck ? ' · ' + ck : ''}${fc != null ? ' · ' + fc + ' f' : ''}` +
+      `${l && l.fps ? ' · ' + l.fps + ' fps' : ''}${l && l.note ? ' · ✎' : ''}</span></div>`;
+  }).join('');
+  const r = reviewStore(false);
+  const used = new Set((V.labelMap || []).filter(i => i >= 0));
+  const orphans = r ? r.labels.filter((l, i) => !used.has(i) && (l.kpi || l.note || l.fps != null || l.markIn != null)).length : 0;
+  $('rvOrphans').textContent = orphans ? t('rvOrphans', { n: orphans }) : '';
+  const selRow = box.querySelector('.rvRow.sel');
+  if (selRow) selRow.scrollIntoView({ block: 'nearest' });
+}
+
+// ---------- selection ----------
+function rvSelect(id) {
+  const ev = V.events.find(e => e.id === id);
+  if (!ev || !V.ready) return;
+  RV.sel = id; V.selEvent = id;
+  RV.win = PL.eventWindow(ev, S.review.pre, S.review.post, vid.duration);
+  layoutCrop();
+  rvid.playbackRate = S.review.speed;
+  rvid.currentTime = RV.win[0];
+  rvid.play().catch(() => {});
+  renderReviewList(); renderReviewPanel(); buildStrip(ev, true);
+}
+function rvNext(dir) {
+  const list = V.events.filter(e => passesFilter(e) || e.id === RV.sel);
+  if (!list.length) return;
+  const i = list.findIndex(e => e.id === RV.sel);
+  const j = i < 0 ? 0 : PL.clamp(i + dir, 0, list.length - 1);
+  if (list[j] && list[j].id !== RV.sel) rvSelect(list[j].id);
+}
+function rvEnter() {
+  remapLabels();
+  if (!V.events.some(e => e.id === RV.sel)) RV.sel = null;
+  renderReviewList();
+  if (RV.sel == null) { const first = V.events.find(passesFilter) || V.events[0]; if (first) { rvSelect(first.id); return; } }
+  layoutCrop(); renderReviewPanel();
+}
+
+// ---------- cropped player (CSS crop of a second <video>, no per-frame copying) ----------
+function camRoiFor(ev) { return RV.full || !ev ? FULL_ROI : (S.rois[CAM_ROI[ev.side]] || FULL_ROI); }
+function layoutCrop() {
+  const ev = selEvent(), crop = $('rvCrop');
+  const W0 = vid.videoWidth, H0 = vid.videoHeight;
+  $('rvEmpty').textContent = !V.events.length ? t('rvNoEvents') : !ev ? t('rvSelectHint') : '';
+  crop.hidden = !ev || !W0;
+  if (crop.hidden) return;
+  const roi = camRoiFor(ev);
+  const box = $('rvPlayerBox').getBoundingClientRect();
+  const ar = (roi.w * W0) / (roi.h * H0);
+  let w = box.width - 16, h = w / ar;
+  if (h > box.height - 12) { h = box.height - 12; w = h * ar; }
+  w = Math.max(40, Math.floor(w)); h = Math.max(30, Math.floor(h));
+  crop.style.width = w + 'px'; crop.style.height = h + 'px';
+  const vw = w / roi.w, vh = h / roi.h;
+  Object.assign(rvid.style, { width: vw + 'px', height: vh + 'px', left: -roi.x * vw + 'px', top: -roi.y * vh + 'px' });
+}
+new ResizeObserver(() => { if (S.view === 'review') { layoutCrop(); drawWin(); } }).observe($('rvPlayerBox'));
+
+function rvTick() {
+  if (RV.win && !rvid.paused && rvid.currentTime >= RV.win[1] - 1e-3) rvid.currentTime = RV.win[0];
+  $('rvTime').textContent = PL.fmtVideoTime(rvid.currentTime) + (clockText(rvid.currentTime) ? '  ·  ' + clockText(rvid.currentTime) : '');
+  $('rvPlay').textContent = rvid.paused ? t('play') : t('pause');
+  drawWin();
+}
+function rvOnFrame() { rvTick(); rvid.requestVideoFrameCallback(rvOnFrame); }
+rvid.addEventListener('timeupdate', rvTick);
+rvid.addEventListener('seeked', rvTick);
+rvid.addEventListener('play', rvTick);
+rvid.addEventListener('pause', rvTick);
+function rvToggle() {
+  if (!selEvent()) return;
+  if (rvid.paused) { if (RV.win && (rvid.currentTime < RV.win[0] || rvid.currentTime >= RV.win[1] - 1e-3)) rvid.currentTime = RV.win[0]; rvid.play().catch(() => {}); }
+  else rvid.pause();
+}
+function rvStep(nFrames) {
+  if (!selEvent()) return;
+  rvid.pause();
+  const dur = Number.isFinite(vid.duration) ? vid.duration : Infinity;
+  rvid.currentTime = PL.clamp(rvid.currentTime + nFrames / (S.fps || 30), 0, dur);
+}
+
+// window timeline: event span, In/Out marks, filmstrip ticks, playhead
+const rvWin = $('rvWin'), wctx = rvWin.getContext('2d');
+function drawWin() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(rvWin.clientWidth * dpr), H = Math.round(rvWin.clientHeight * dpr);
+  if (!W || !H) return;
+  if (rvWin.width !== W || rvWin.height !== H) { rvWin.width = W; rvWin.height = H; }
+  const c = wctx; c.clearRect(0, 0, W, H);
+  c.fillStyle = '#232838'; c.fillRect(0, 0, W, H);
+  const ev = selEvent(); if (!ev || !RV.win) return;
+  const [w0, w1] = RV.win, X = tt => (tt - w0) / (w1 - w0) * W;
+  c.fillStyle = ev.side === 'L' ? 'rgba(255,77,77,.45)' : 'rgba(255,159,26,.5)';
+  c.fillRect(X(ev.tStart), 0, Math.max(2, X(ev.tEnd) - X(ev.tStart)), H);
+  c.fillStyle = '#4b5368';
+  for (const tt of PL.stripTimes(w0, w1, STRIP_N)) c.fillRect(Math.round(X(tt)), H - 5 * dpr, 1 * dpr, 5 * dpr);
+  const l = labelOf(ev);
+  c.font = `bold ${10 * dpr}px sans-serif`; c.textBaseline = 'top';
+  for (const [k, col, txt] of [['markIn', '#2fd158', 'I'], ['markOut', '#4da3ff', 'O']]) {
+    if (!l || !Number.isFinite(l[k])) continue;
+    const x = Math.round(X(l[k]));
+    c.fillStyle = col; c.fillRect(x - dpr, 0, 2 * dpr, H); c.fillText(txt, x + 3 * dpr, 2 * dpr);
+  }
+  c.fillStyle = '#fff'; c.fillRect(Math.round(X(rvid.currentTime)), 0, 2 * dpr, H);
+}
+rvWin.addEventListener('pointerdown', e => {
+  if (!RV.win || !selEvent()) return;
+  const b = rvWin.getBoundingClientRect();
+  rvid.pause();
+  rvid.currentTime = RV.win[0] + PL.clamp((e.clientX - b.left) / b.width, 0, 1) * (RV.win[1] - RV.win[0]);
+});
+
+// ---------- filmstrip + readouts (captured from a hidden third <video>) ----------
+function waitMeta(el) {
+  return el.readyState >= 1 ? Promise.resolve() : new Promise((res, rej) => {
+    el.addEventListener('loadedmetadata', res, { once: true });
+    el.addEventListener('error', () => rej(new Error('load error')), { once: true });
+  });
+}
+// Resolves only on the 'seeked' that belongs to THIS target time. When a filmstrip build is
+// interrupted by a new one, the old seek's 'seeked' can still arrive; accepting it would make
+// every later capture run one seek early (black thumbnails).
+async function seekEl(el, tSec) {
+  await waitMeta(el);
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const fin = () => { if (!done) { done = true; clearTimeout(guard); resolve(); } };
+    const onSeeked = () => {
+      if (el.seeking || Math.abs(el.currentTime - tSec) > 0.002) return;   // stale event from an earlier seek
+      el.removeEventListener('seeked', onSeeked);
+      if ('requestVideoFrameCallback' in el) { el.requestVideoFrameCallback(fin); setTimeout(fin, 120); } else fin();
+    };
+    const guard = setTimeout(() => { if (!done) { done = true; el.removeEventListener('seeked', onSeeked); reject(new Error('seek timeout')); } }, 30000);
+    el.addEventListener('seeked', onSeeked);
+    el.currentTime = tSec;
+  });
+}
+// Copy an ROI of the current frame of `el` into a new canvas (upscaled up to 3x, max width maxW).
+function captureRoi(el, roi, maxW) {
+  if (!roi || !el.videoWidth) return null;
+  const p = PL.normToPx(roi, el.videoWidth, el.videoHeight);
+  const k = Math.min(3, maxW / p.sw);
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(p.sw * k)); cv.height = Math.max(1, Math.round(p.sh * k));
+  const c = cv.getContext('2d'); c.imageSmoothingQuality = 'high';
+  c.drawImage(el, p.sx, p.sy, p.sw, p.sh, 0, 0, cv.width, cv.height);
+  return cv;
+}
+function paintInto(target, src) {
+  if (!src) { target.classList.add('empty'); return; }
+  target.classList.remove('empty');
+  target.width = src.width; target.height = src.height;
+  target.getContext('2d').drawImage(src, 0, 0);
+}
+function readoutKeys(side) { return ['SPEED', 'CLOCK', side === 'L' ? 'RL_DIST' : 'RR_DIST', side === 'L' ? 'RR_DIST' : 'RL_DIST']; }
+function stripKey(ev) { return [ev.side, ev.tStart.toFixed(3), ev.tEnd.toFixed(3), S.review.pre, S.review.post, RV.full ? 1 : 0].join('|'); }
+
+function renderStripShell(ev) {
+  const times = PL.stripTimes(RV.win[0], RV.win[1], STRIP_N);
+  $('rvStrip').innerHTML = times.map((tt, i) => {
+    const inEv = tt >= ev.tStart && tt <= ev.tEnd, rel = tt - ev.tStart;
+    return `<div class="th pending ${ev.side}${inEv ? ' ev' : ''}" data-t="${tt}" data-loading="${esc(t('rvLoading'))}"><canvas data-i="${i}"></canvas>` +
+      `<span>${rel >= 0 ? '+' : '−'}${Math.abs(rel).toFixed(1)} s</span></div>`;
+  }).join('');
+  const roi = camRoiFor(ev), W0 = vid.videoWidth || 16, H0 = vid.videoHeight || 9;
+  $('rvStrip').querySelectorAll('canvas').forEach(cv => { cv.style.aspectRatio = `${roi.w * W0} / ${roi.h * H0}`; });
+}
+function renderReadoutShell(ev) {
+  $('rvReadouts').innerHTML = readoutKeys(ev.side).filter(k => S.rois[k])
+    .map(k => `<span>${k}</span><canvas data-ro="${k}" class="roCap"></canvas>`).join('');
+}
+function paintEntry(ev, entry) {
+  (entry.strip || []).forEach((cv, i) => {
+    const tgt = $('rvStrip').querySelector(`canvas[data-i="${i}"]`);
+    if (tgt && cv) { paintInto(tgt, cv); tgt.parentElement.classList.remove('pending'); }
+  });
+  for (const [k, cv] of Object.entries(entry.ro || {})) { const tgt = $('rvReadouts').querySelector(`canvas[data-ro="${k}"]`); if (tgt && cv) paintInto(tgt, cv); }
+  if (entry.fps !== undefined) paintInto($('rvFpsCap'), entry.fps);
+}
+async function buildStrip(ev, paint) {
+  const tok = ++RV.token, key = stripKey(ev);
+  const win = PL.eventWindow(ev, S.review.pre, S.review.post, vid.duration);
+  if (paint) { renderStripShell(ev); renderReadoutShell(ev); paintInto($('rvFpsCap'), null); }
+  // Entries are cached as soon as they start, so an interrupted build resumes where it stopped.
+  let entry = RV.cache.get(key);
+  if (!entry) {
+    entry = { strip: [], ro: null, fps: undefined, complete: false };
+    RV.cache.set(key, entry);
+    while (RV.cache.size > 20) RV.cache.delete(RV.cache.keys().next().value);
+  }
+  if (paint) paintEntry(ev, entry);
+  try {
+    if (!entry.ro) {
+      await seekEl(fvid, ev.tStart);
+      if (tok !== RV.token) return;
+      const ro = {};
+      for (const k of readoutKeys(ev.side)) ro[k] = captureRoi(fvid, S.rois[k], 300);
+      entry.fps = captureRoi(fvid, S.rois[FPS_ROI[ev.side]], 300);
+      entry.ro = ro;
+      if (paint) paintEntry(ev, { ro, fps: entry.fps });
+    }
+    const times = PL.stripTimes(win[0], win[1], STRIP_N), roi = camRoiFor(ev);
+    for (let i = 0; i < times.length; i++) {
+      if (entry.strip[i]) continue;
+      await seekEl(fvid, times[i]);
+      if (tok !== RV.token) return;
+      entry.strip[i] = captureRoi(fvid, roi, 240);
+      if (paint) paintEntry(ev, { strip: entry.strip.map((c, j) => (j === i ? c : null)) });
+    }
+  } catch (e) { return; }
+  entry.complete = true;
+  // prefetch the next event while the user looks at this one
+  if (paint && tok === RV.token) {
+    const i = V.events.indexOf(ev), nx = V.events[i + 1];
+    const ne = nx && RV.cache.get(stripKey(nx));
+    if (nx && !(ne && ne.complete)) buildStrip(nx, false);
+  }
+}
+$('rvStrip').addEventListener('click', e => {
+  const th = e.target.closest('.th'); if (!th) return;
+  rvid.pause(); rvid.currentTime = +th.dataset.t;
+});
+
+// ---------- side panel ----------
+function renderKpiButtons() {
+  $('kpiBtns').innerHTML = PL.KPI.map((k, i) =>
+    `<button class="kpiBtn" data-kpi="${k}" style="--kc:${KPI_COLOR[k]}"><kbd>${i + 1}</kbd>${esc(t('kpi_' + k))}<small>${esc(t('kpiSub_' + k))}</small></button>`).join('');
+}
+function renderReviewPanel() {
+  if (S.view !== 'review') return;
+  const ev = selEvent(), l = ev ? labelOf(ev) : null;
+  $('kpiBtns').querySelectorAll('.kpiBtn').forEach(b => {
+    const on = !!(l && l.kpi === b.dataset.kpi);
+    b.classList.toggle('on', on); b.style.background = on ? KPI_COLOR[b.dataset.kpi] : ''; b.disabled = !ev;
+  });
+  $('rvAuto').checked = S.review.autoAdvance;
+  $('rvSpeed').value = String(S.review.speed); $('rvPre').value = S.review.pre; $('rvPost').value = S.review.post; $('rvFull').checked = RV.full;
+  if (!ev) {
+    $('rvHead').textContent = ''; $('rvInVal').textContent = $('rvOutVal').textContent = '—'; $('rvFrames').textContent = '—';
+    $('rvNote').value = ''; $('rvFps').value = ''; $('rvFpsTag').textContent = ''; $('rvFpsHint').textContent = '';
+    renderAnchor(); return;
+  }
+  const ck = clockText(ev.tStart), camKey = CAM_ROI[ev.side];
+  $('rvHead').innerHTML = t('rvHead', { id: ev.id, side: ev.side, cam: camKey, t0: PL.fmtVideoTime(ev.tStart), t1: PL.fmtVideoTime(ev.tEnd), d: ev.duration.toFixed(2) }) +
+    (ck ? ` · ${esc(t('rvClockAt', { c: ck }))}` : '') + (!S.rois[camKey] ? ` · <span style="color:#ffb4a8">${esc(t('rvNoCamRoi', { roi: camKey }))}</span>` : '');
+  // marks + frame count
+  $('rvInVal').textContent = l && Number.isFinite(l.markIn) ? PL.fmtVideoTime(l.markIn) : '—';
+  $('rvOutVal').textContent = l && Number.isFinite(l.markOut) ? PL.fmtVideoTime(l.markOut) : '—';
+  const fr = S.fps || 30, fc = l ? PL.frameCount(l.markIn, l.markOut, fr) : null, fb = $('rvFrames');
+  const bad = l && Number.isFinite(l.markIn) && Number.isFinite(l.markOut) && fc == null;
+  fb.classList.toggle('bad', !!bad);
+  fb.innerHTML = bad ? esc(t('rvMarkBad')) : fc == null ? '—' :
+    `${fc} f<small>${esc(t('rvFramesDur', { s: (fc / fr).toFixed(3), fps: fr }))}</small>`;
+  // fps
+  const fpsRoi = FPS_ROI[ev.side];
+  $('rvFpsHint').textContent = S.rois[fpsRoi] ? t('rvFpsHint', { roi: fpsRoi, side: ev.side }) : t('rvFpsNoRoi', { roi: fpsRoi, side: ev.side });
+  const saved = l && Number.isFinite(l.fps), sug = S.review.lastFps[ev.side];
+  const fi = $('rvFps');
+  if (document.activeElement !== fi) fi.value = saved ? l.fps : (Number.isFinite(sug) ? sug : '');
+  fi.classList.toggle('suggested', !saved && fi.value !== '');
+  $('rvFpsTag').textContent = saved ? t('rvSaved') : fi.value !== '' ? t('rvSuggested') : '';
+  $('rvFpsGrab').disabled = !S.rois[fpsRoi];
+  if (document.activeElement !== $('rvNote')) $('rvNote').value = l ? l.note : '';
+  renderAnchor();
+}
+function commitFps(lab, side) {
+  const v = parseFloat($('rvFps').value);
+  if (Number.isFinite(v) && v > 0 && v <= 240) { lab.fps = v; S.review.lastFps[side] = v; }
+}
+function rvSetKpi(k) {
+  const ev = selEvent(); if (!ev) return;
+  const lab = ensureLabel(ev);
+  lab.kpi = k;
+  if (k && !Number.isFinite(lab.fps)) commitFps(lab, ev.side);
+  scheduleSave(); renderReviewList(); renderReviewPanel(); renderEvents();
+  if (k && S.review.autoAdvance) rvNext(1);
+}
+function rvMark(which) {
+  const ev = selEvent(); if (!ev) return;
+  const lab = ensureLabel(ev);
+  lab[which] = rvid.currentTime;
+  scheduleSave(); renderReviewList(); renderReviewPanel(); drawWin();
+}
+
+// ---------- clock anchor ----------
+function renderAnchor() {
+  const a = anchor();
+  if (document.activeElement !== $('rvAnchorVideo')) $('rvAnchorVideo').value = a ? PL.fmtVideoTime(a.video) : '';
+  if (document.activeElement !== $('rvAnchorClock')) $('rvAnchorClock').value = a ? PL.fmtClock(a.clock) : '';
+  $('rvAnchorState').textContent = a ? t('rvAnchorSet', { v: PL.fmtVideoTime(a.video), c: PL.fmtClock(a.clock) }) : t('rvAnchorNone');
+}
+function applyAnchorInputs() {
+  const vt = PL.parseTime($('rvAnchorVideo').value), ck = PL.parseClock($('rvAnchorClock').value);
+  if (vt == null || ck == null) return;            // wait until both are filled
+  if (!Number.isFinite(vt) || !Number.isFinite(ck)) { toast(t('rvAnchorBad'), true); return; }
+  if (!V.file) return;
+  reviewStore(true).anchor = { video: vt, clock: ck };
+  scheduleSave(); renderAnchor(); renderReviewList(); renderReviewPanel(); renderEvents();
+}
+
+
+/* =====================================================================
    SESSION JSON
    ===================================================================== */
 function downloadText(name, text, mime) {
@@ -1649,9 +2332,10 @@ function buildSession() {
   return {
     app: 'BSD-Event-Analyzer', schema: 1, savedAt: new Date().toISOString(),
     video: V.meta || null,
-    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan },
+    settings: { fps: S.fps, rois: S.rois, red: S.red, green: S.green, lamps: S.lamps, scan: S.scan, review: S.review },
     samples: PL.packSamples(V.samples),
-    events: V.events
+    events: V.events,
+    review: reviewStore(false)
   };
 }
 function saveSession() {
@@ -1677,13 +2361,18 @@ async function loadSessionText(text) {
       if (!ok) return;
     }
   }
-  const keep = { lang: S.lang, view: S.view };
+  const keep = { lang: S.lang, view: S.view, videos: S.videos };
   S = sanitizeSettings({ ...d.settings, ...keep });
+  const rv = sanitizeReview(d.review);
+  const rkey = V.meta ? vkey() : d.video ? d.video.name + '|' + d.video.size : null;
+  if (rv && rkey) S.videos[rkey] = rv;
   const smp = PL.unpackSamples(d.samples);
   if (!V.meta && d.video) { V.expectKey = d.video; V.pendingSamples = smp; toast(t('sessionPendingVideo', { a: d.video.name })); }
   else { V.samples = smp; V.dirty = false; toast(smp.length ? t('scanDataLoaded', { n: smp.length }) : t('sessionLoaded')); }
   $('fpsIn').value = S.fps; syncRedInputs(); syncScanInputs();
+  RV.cache.clear(); RV.sel = null;
   renderRoiList(); drawOverlay(); scheduleRefresh(); renderLamps(); extractNow(); scheduleSave();
+  if (S.view === 'review') rvEnter();
 }
 
 
@@ -1691,10 +2380,14 @@ async function loadSessionText(text) {
    WIRING
    ===================================================================== */
 function setView(v) {
+  if (SCAN.running && v !== 'edit') return;
   S.view = v;
-  $('viewEdit').hidden = v !== 'edit'; $('viewReport').hidden = v !== 'report';
+  $('viewEdit').hidden = v !== 'edit'; $('viewReview').hidden = v !== 'review'; $('viewReport').hidden = v !== 'report';
   document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-  if (v === 'edit') requestAnimationFrame(layoutStage);
+  if (v !== 'review') rvid.pause();
+  if (v !== 'edit') vid.pause();
+  if (v === 'edit') requestAnimationFrame(() => { layoutStage(); drawChart(); });
+  if (v === 'review') requestAnimationFrame(rvEnter);
   scheduleSave();
 }
 function syncRedInputs() {
@@ -1777,8 +2470,25 @@ sb.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (f && !SCAN.running) openVideoFile(f);
 });
 
+function reviewKey(e) {
+  const k = e.key;
+  if (k >= '1' && k <= '4') rvSetKpi(PL.KPI[+k - 1]);
+  else if (k === '0') rvSetKpi(null);
+  else if (k === 'ArrowRight') { e.preventDefault(); rvNext(1); }
+  else if (k === 'ArrowLeft') { e.preventDefault(); rvNext(-1); }
+  else if (k === ' ') { e.preventDefault(); rvToggle(); }
+  else if (k === ',') rvStep(-1);
+  else if (k === '.') rvStep(1);
+  else if (k === '[') rvStep(-(S.fps || 30));
+  else if (k === ']') rvStep(S.fps || 30);
+  else if (k === 'i' || k === 'I') rvMark('markIn');
+  else if (k === 'o' || k === 'O') rvMark('markOut');
+  else if (k === 'f' || k === 'F') { $('rvFull').checked = !RV.full; $('rvFull').dispatchEvent(new Event('change')); }
+}
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && e.target.closest('input,textarea')) { e.target.blur(); return; }
   if (e.target.closest('input,textarea,select') || !$('modal').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (S.view === 'review') return reviewKey(e);
   if (S.view !== 'edit') return;
   const k = e.key;
   if (SCAN.running) { if (k === 'Escape') SCAN.cancel = true; return; }
@@ -1790,8 +2500,47 @@ document.addEventListener('keydown', e => {
   else if (k === 'Escape') { if (drag) endDrag(null, true); armed = false; renderRoiList(); drawOverlay(); }
 });
 
+// review controls
+document.querySelectorAll('#rvFilterSeg button').forEach(b => b.onclick = () => { S.review.filter = b.dataset.f; scheduleSave(); renderReviewList(); });
+$('rvEvents').addEventListener('click', e => { const r = e.target.closest('.rvRow'); if (r) rvSelect(+r.dataset.id); });
+$('kpiBtns').addEventListener('click', e => { const b = e.target.closest('.kpiBtn'); if (b) { const l = selEvent() && labelOf(selEvent()); rvSetKpi(l && l.kpi === b.dataset.kpi ? null : b.dataset.kpi); } });
+$('rvAuto').onchange = e => { S.review.autoAdvance = e.target.checked; scheduleSave(); };
+$('rvPlay').onclick = rvToggle;
+document.querySelectorAll('[data-rvstep]').forEach(b => b.onclick = () => rvStep(parseFloat(b.dataset.rvstep)));
+$('rvSpeed').onchange = e => { S.review.speed = parseFloat(e.target.value); rvid.playbackRate = S.review.speed; scheduleSave(); };
+const winChange = () => {
+  const a = parseFloat($('rvPre').value), b = parseFloat($('rvPost').value);
+  if (a >= 0 && a <= 30) S.review.pre = a;
+  if (b >= 0 && b <= 30) S.review.post = b;
+  scheduleSave(); if (RV.sel != null) rvSelect(RV.sel); else renderReviewPanel();
+};
+$('rvPre').onchange = winChange; $('rvPost').onchange = winChange;
+$('rvFull').onchange = e => { RV.full = e.target.checked; if (RV.sel != null) { layoutCrop(); const ev = selEvent(); if (ev) buildStrip(ev, true); } };
+$('rvMarkIn').onclick = () => rvMark('markIn');
+$('rvMarkOut').onclick = () => rvMark('markOut');
+$('rvClearMarks').onclick = () => { const ev = selEvent(), l = ev && labelOf(ev); if (l) { l.markIn = l.markOut = null; scheduleSave(); renderReviewList(); renderReviewPanel(); drawWin(); } };
+$('rvFps').addEventListener('change', () => { const ev = selEvent(); if (!ev) return; const lab = ensureLabel(ev); const v = $('rvFps').value.trim();
+  if (v === '') lab.fps = null; else commitFps(lab, ev.side); scheduleSave(); renderReviewList(); renderReviewPanel(); });
+$('rvFpsGrab').onclick = () => { const ev = selEvent(); if (ev) paintInto($('rvFpsCap'), captureRoi(rvid, S.rois[FPS_ROI[ev.side]], 300)); };
+$('rvNote').addEventListener('input', () => { const ev = selEvent(); if (!ev) return; const lab = labelOf(ev);
+  if (!lab && !$('rvNote').value) return; ensureLabel(ev).note = $('rvNote').value; scheduleSave(); });
+$('rvNote').addEventListener('change', () => renderReviewList());
+$('rvUseFrame').onclick = () => {
+  const el = S.view === 'review' && rvid.readyState >= 2 ? rvid : vid;
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  $('rvAnchorVideo').value = PL.fmtVideoTime(el.currentTime);
+  paintInto($('rvAnchorCap'), captureRoi(el, S.rois.CLOCK, 300));
+  $('rvAnchorClock').focus();
+};
+$('rvAnchorVideo').addEventListener('change', applyAnchorInputs);
+$('rvAnchorClock').addEventListener('change', applyAnchorInputs);
+$('rvAnchorClear').onclick = () => { const r = reviewStore(false); if (r) { r.anchor = null; scheduleSave(); } renderAnchor(); renderReviewList(); renderReviewPanel(); renderEvents(); };
+$('rvAnchorCap').classList.add('empty'); $('rvFpsCap').classList.add('empty');
+if ('requestVideoFrameCallback' in rvid) rvid.requestVideoFrameCallback(rvOnFrame);
+
 syncRedInputs();
 syncScanInputs();
+renderKpiButtons();
 setView(S.view);
 applyI18n();
 </script>

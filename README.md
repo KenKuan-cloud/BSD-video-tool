@@ -5,7 +5,7 @@ Single-file offline tool (`bsd_event_analyzer.html`) for finding BSD warning-lam
 ## Status
 - [x] Phase 1: load/player, ROI tool, lamp calibration, live lamp score
 - [x] Phase 2: `BSD_ACTIVE` ROI (green lamp) + green classifier; scan (seek + play modes) that only counts time while BSD Active is on; event extraction; strip chart with L / R / BSD Active tracks
-- [ ] Phase 3: review UI, KPI hotkeys, Mark In/Out frame count, FPS entry, time mapping
+- [x] Phase 3: review UI, KPI hotkeys, Mark In/Out frame count, FPS entry, time mapping
 - [ ] Phase 4: results table + summary chart, exports, i18n completion, auto-suggestion
 
 ## Results table (matches the KPI spreadsheet)
