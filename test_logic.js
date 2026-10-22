@@ -522,5 +522,76 @@ section('redScore throughput (perf sanity)', () => {
   console.log(`      (${(ms / 2000).toFixed(3)} ms per 64x64 lamp ROI)`);
 });
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+// ---------------- MKV clip (needs ffmpeg/ffprobe on PATH; skipped otherwise) ----------------
+async function mkvClipTests() {
+  const { execFileSync } = require('child_process');
+  const os = require('os');
+  try { execFileSync('ffprobe', ['-version'], { stdio: 'ignore' }); execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); }
+  catch (e) { console.log('skip MKV clip tests (ffmpeg/ffprobe not found)'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsdclip-'));
+  const ff = args => execFileSync('ffmpeg', ['-loglevel', 'error', '-y', ...args]);
+  const probe = (args) => execFileSync('ffprobe', ['-v', 'error', ...args]).toString();
+  const src = {
+    h264: path.join(dir, 'h264_aac.mkv'), vp9: path.join(dir, 'vp9.mkv'), live: path.join(dir, 'live.mkv'), mp4: path.join(dir, 'x.mp4')
+  };
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=40', '-f', 'lavfi', '-i', 'sine=d=40', '-c:v', 'libx264', '-g', '60', '-pix_fmt', 'yuv420p', '-c:a', 'aac', src.h264]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=30', '-c:v', 'libvpx-vp9', '-g', '45', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '300k', src.vp9]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=20', '-c:v', 'libx264', '-g', '30', '-pix_fmt', 'yuv420p', '-live', '1', src.live]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', src.mp4]);
+
+  const reader = file => { const fd = fs.openSync(file, 'r'); return async (off, len) => { const b = Buffer.alloc(len); const n = fs.readSync(fd, b, 0, len, off); return new Uint8Array(b.buffer, b.byteOffset, n); }; };
+  const build = (file, plan, outFile) => {
+    const fd = fs.openSync(file, 'r'), chunks = [];
+    for (const p of plan.parts) {
+      if (p.bytes) chunks.push(Buffer.from(p.bytes));
+      else { const b = Buffer.alloc(p.src[1] - p.src[0]); fs.readSync(fd, b, 0, b.length, p.src[0]); chunks.push(b); }
+    }
+    fs.writeFileSync(outFile, Buffer.concat(chunks));
+  };
+  const pkts = file => probe(['-select_streams', 'v:0', '-show_entries', 'packet=pos,flags', '-of', 'csv=p=0', file]).trim().split('\n').map(l => { const [pos, flags] = l.split(','); return { pos: +pos, key: flags.includes('K') }; });
+
+  const cases = [
+    ['h264+aac, middle', src.h264, 12.3, 21.7],
+    ['h264+aac, from start', src.h264, 0, 5],
+    ['h264+aac, to end', src.h264, 33, 99],
+    ['vp9, middle', src.vp9, 7.9, 16.2],
+    ['live mkv (unknown sizes, no cues)', src.live, 6.4, 12]
+  ];
+  for (const [name, file, a, b] of cases) {
+    const fail0 = fail;
+    const size = fs.statSync(file).size;
+    const plan = await PL.mkvClipPlan(PL.cachedReader(reader(file)), size, a, b);
+    const out = path.join(dir, 'clip_' + name.replace(/\W+/g, '_') + '.mkv');
+    build(file, plan, out);
+    ok(plan.size === fs.statSync(out).size, name + ': planned size = written size');
+    const srcDur = parseFloat(probe(['-show_entries', 'format=duration', '-of', 'csv=p=0', file]));
+    ok(plan.startSec <= a + 1e-6 && plan.endSec >= Math.min(b, Number.isFinite(srcDur) ? srcDur : b) - 0.1, name + ': clip covers From..To', { start: plan.startSec, end: plan.endSec, a, b, srcDur });
+    // every original video packet inside the copied cluster byte ranges must be in the clip
+    const ranges = plan.parts.filter(p => p.src && p.src[0] > 0).slice(1).map(p => p.src);
+    const want = pkts(file).filter(k => ranges.some(([s, e]) => k.pos >= s && k.pos < e)).length;
+    const got = pkts(out);
+    ok(got.length === want && got.length > 0, name + ': video packets copied', { want, got: got.length });
+    ok(got[0].key, name + ': clip starts on a keyframe');
+    let errs = '';
+    try { execFileSync('ffmpeg', ['-v', 'error', '-i', out, '-f', 'null', '-'], { stdio: ['ignore', 'ignore', 'pipe'] }); } catch (e) { errs = String(e.stderr || e); }
+    ok(errs.trim() === '', name + ': decodes without errors', errs.slice(0, 300));
+    const dur = parseFloat(probe(['-show_entries', 'format=duration', '-of', 'csv=p=0', out]));
+    ok(Math.abs(dur - (plan.endSec - plan.startSec)) < 1.0, name + ': duration matches plan', { dur, plan: plan.endSec - plan.startSec });
+    const first = parseFloat(probe(['-select_streams', 'v:0', '-show_entries', 'packet=pts_time', '-read_intervals', '%+#1', '-of', 'csv=p=0', out]));
+    ok(first < 1.0, name + ': timestamps rebased to ~0', first);
+    console.log((fail === fail0 ? 'ok   ' : 'FAIL ') + 'mkv clip: ' + name + `  (${plan.startSec.toFixed(2)}–${plan.endSec.toFixed(2)} s, ${plan.clusters} clusters, ${(plan.size / 1024).toFixed(0)} KB)`);
+  }
+  const f0 = fail;
+  let msg = '';
+  try { await PL.mkvClipPlan(PL.cachedReader(reader(src.mp4)), fs.statSync(src.mp4).size, 0, 1); } catch (e) { msg = e.message; }
+  ok(/not a Matroska/.test(msg), 'mp4 rejected with a clear message', msg);
+  try { msg = ''; await PL.mkvClipPlan(PL.cachedReader(reader(src.vp9)), fs.statSync(src.vp9).size, 5, 5); } catch (e) { msg = e.message; }
+  ok(/after its start/.test(msg), 'empty range rejected', msg);
+  console.log((fail === f0 ? 'ok   ' : 'FAIL ') + 'mkv clip: input validation');
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+mkvClipTests().then(() => {
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+}, e => { console.log('FAIL mkv clip tests crashed: ' + (e && e.stack || e)); process.exit(1); });

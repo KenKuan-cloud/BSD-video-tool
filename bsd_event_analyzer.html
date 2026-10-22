@@ -357,6 +357,19 @@
       </div>
 
       <div class="card">
+        <h3 data-i18n="clipTitle"></h3>
+        <p class="hint" data-i18n="clipHint"></p>
+        <div class="grid2">
+          <label for="clipFrom" data-i18n="clipFrom"></label>
+          <span class="crow" style="margin:0"><input type="text" id="clipFrom" style="width:80px" data-i18n-placeholder="clipNow"><button class="sbtn" id="clipFromCur" data-i18n="clipUseCur" data-i18n-title="clipUseCurTip"></button></span>
+          <label for="clipTo" data-i18n="clipTo"></label>
+          <span class="crow" style="margin:0"><input type="text" id="clipTo" style="width:80px" data-i18n-placeholder="clipPlus60"><button class="sbtn" id="clipToCur" data-i18n="clipUseCur" data-i18n-title="clipUseCurTip"></button></span>
+        </div>
+        <div class="crow" style="margin-top:8px"><button class="sbtn pri" id="btnClip" data-i18n="clipSave"></button></div>
+        <div id="clipInfo" class="hint" style="margin:4px 0 0"></div>
+      </div>
+
+      <div class="card">
         <h3 data-i18n="redTitle"></h3>
         <p class="hint" data-i18n="redHint"></p>
         <div class="grid2">
@@ -419,6 +432,7 @@
           <input type="number" id="rvPre" min="0" max="30" step="0.5" data-i18n-title="rvPre">
           <input type="number" id="rvPost" min="0" max="30" step="0.5" data-i18n-title="rvPost"></span>
         <label class="fpsBox"><input type="checkbox" id="rvFull"><span data-i18n="rvFull"></span></label>
+        <button class="cbtn" id="rvClip" data-i18n="rvClip" data-i18n-title="rvClipTip"></button>
       </div>
       <div class="rvStrip" id="rvStrip"></div>
     </section>
@@ -970,7 +984,223 @@ const PureLogic = (function () {
     return { kpi, reason: kpi ? (asym > 0 ? 'rise' : 'decay') : 'symmetric', asym, peakT: times[pk], base, peak };
   }
 
-  return { KPI_SHEET, SHEET_COLS, EXTRA_COLS, buildRows, rowsToCsv, rowsToTsv, countSummary,
+  // ---- MKV clip: lossless cut by copying whole clusters (no re-encoding) ----
+  // `read(offset, length) -> Promise<Uint8Array>` reads the source; the result is a list of
+  // parts ({src:[start,end]} = bytes copied from the source, {bytes} = new bytes) so a browser
+  // can build the clip as a Blob of File slices without loading the video into memory.
+  const MKV = { EBML: 0x1A45DFA3, SEGMENT: 0x18538067, SEEKHEAD: 0x114D9B74, SEEK: 0x4DBB, SEEKID: 0x53AB, SEEKPOS: 0x53AC,
+    INFO: 0x1549A966, TCSCALE: 0x2AD7B1, DURATION: 0x4489, TRACKS: 0x1654AE6B, TRACKENTRY: 0xAE, TRACKNUM: 0xD7, TRACKTYPE: 0x83,
+    CLUSTER: 0x1F43B675, TIMECODE: 0xE7, POSITION: 0xA7, PREVSIZE: 0xAB, SIMPLEBLOCK: 0xA3, BLOCKGROUP: 0xA0, BLOCK: 0xA1,
+    REFBLOCK: 0xFB, CUES: 0x1C53BB6B, CUEPOINT: 0xBB, CUETIME: 0xB3, CUETRACKPOS: 0xB7, CUETRACK: 0xF7, CUECLUSTERPOS: 0xF1,
+    CRC32: 0xBF, VOID: 0xEC, TAGS: 0x1254C367, CHAPTERS: 0x1043A770, ATTACH: 0x1941A469 };
+  const MKV_TOP = new Set([MKV.CLUSTER, MKV.CUES, MKV.TAGS, MKV.CHAPTERS, MKV.ATTACH, MKV.SEEKHEAD, MKV.INFO, MKV.TRACKS, MKV.EBML, MKV.SEGMENT]);
+
+  function vintLen(b) { for (let i = 0; i < 8; i++) if (b & (0x80 >> i)) return i + 1; return 0; }
+  // element header at p: {id, size (-1 = unknown), hdr (header length)} or null if incomplete/invalid
+  function ebmlHeader(buf, p) {
+    if (p >= buf.length) return null;
+    const il = vintLen(buf[p]);
+    if (!il || il > 4 || p + il >= buf.length) return null;
+    let id = 0;
+    for (let i = 0; i < il; i++) id = id * 256 + buf[p + i];
+    const q = p + il, sl = vintLen(buf[q]);
+    if (!sl || q + sl > buf.length) return null;
+    let v = buf[q] & (0xff >> sl), ones = v === (0xff >> sl);
+    for (let i = 1; i < sl; i++) { v = v * 256 + buf[q + i]; if (buf[q + i] !== 0xff) ones = false; }
+    return { id, size: ones ? -1 : v, hdr: il + sl };
+  }
+  function ebmlUint(buf, p, n) { let v = 0; for (let i = 0; i < n; i++) v = v * 256 + buf[p + i]; return v; }
+  function encId(id) { const o = []; while (id > 0) { o.unshift(id % 256); id = Math.floor(id / 256); } return o; }
+  function encSize(n, len) {
+    if (!len) { len = 1; while (n >= Math.pow(2, 7 * len) - 1) len++; }
+    const o = new Array(len);
+    for (let i = len - 1, v = n; i >= 0; i--) { o[i] = v % 256; v = Math.floor(v / 256); }
+    o[0] |= 0x80 >> (len - 1);
+    return o;
+  }
+  function encUint(n, len) {
+    if (!len) { len = 1; while (n >= Math.pow(256, len)) len++; }
+    const o = new Array(len);
+    for (let i = len - 1, v = n; i >= 0; i--) { o[i] = v % 256; v = Math.floor(v / 256); }
+    return o;
+  }
+  function ebmlEl(id, payload) { return encId(id).concat(encSize(payload.length), payload); }
+  function ebmlElUint(id, n, len) { return ebmlEl(id, encUint(n, len)); }
+  function ebmlElFloat(id, x) { const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, x); return ebmlEl(id, Array.from(b)); }
+
+  // Wrap a raw reader with 64 KB read-ahead so many tiny header reads stay cheap.
+  function cachedReader(raw, chunk) {
+    chunk = chunk || 65536;
+    let cStart = -1, cBuf = null;
+    return async (off, len) => {
+      if (len > chunk) return raw(off, len);
+      if (!cBuf || off < cStart || off + len > cStart + cBuf.length) { cStart = off; cBuf = await raw(off, chunk); }
+      return cBuf.subarray(off - cStart, off - cStart + len);
+    };
+  }
+
+  // End of an unknown-size element: walk its children until a top-level ID or the limit.
+  async function mkvUnknownEnd(read, start, limit) {
+    let q = start;
+    while (q < limit) {
+      const e = ebmlHeader(await read(q, 16), 0);
+      if (!e || MKV_TOP.has(e.id) || e.size < 0) return q;
+      q += e.hdr + e.size;
+    }
+    return limit;
+  }
+  // Index the file: info, tracks, and every cluster's position and timecode.
+  // Stops once a cluster starts after `stopAfterSec` (one cluster past the clip end is enough).
+  async function mkvScanFile(read, fileSize, stopAfterSec) {
+    const eh = ebmlHeader(await read(0, 64), 0);
+    if (!eh || eh.id !== MKV.EBML) throw new Error('not a Matroska (.mkv / .webm) file');
+    const ebmlEnd = eh.hdr + eh.size;
+    const sh = ebmlHeader(await read(ebmlEnd, 16), 0);
+    if (!sh || sh.id !== MKV.SEGMENT) throw new Error('Matroska segment not found');
+    const segData = ebmlEnd + sh.hdr, segEnd = sh.size < 0 ? fileSize : Math.min(fileSize, segData + sh.size);
+    const r = { ebmlEnd, tcScale: 1e6, duration: null, info: null, tracks: null, videoTrack: null, clusters: [] };
+    let p = segData;
+    while (p < segEnd) {
+      const e = ebmlHeader(await read(p, 16), 0);
+      if (!e) break;
+      if (e.id === MKV.CLUSTER) {
+        const ds = p + e.hdr, cb = await read(ds, 64);
+        let q = 0, tc = null, rest = ds;
+        for (;;) {
+          const c = ebmlHeader(cb, q);
+          if (!c || c.size < 0 || q + c.hdr + c.size > cb.length) break;
+          if (c.id === MKV.TIMECODE) tc = ebmlUint(cb, q + c.hdr, c.size);
+          else if (c.id !== MKV.CRC32 && c.id !== MKV.POSITION && c.id !== MKV.PREVSIZE && c.id !== MKV.VOID) break;
+          q += c.hdr + c.size; rest = ds + q;
+        }
+        if (tc == null) throw new Error('cluster without timecode at byte ' + p);
+        const end = e.size < 0 ? await mkvUnknownEnd(read, ds, segEnd) : Math.min(ds + e.size, segEnd);
+        r.clusters.push({ pos: p, rest, end, tc });
+        if (stopAfterSec != null && tc * r.tcScale / 1e9 > stopAfterSec && r.clusters.length > 1) break;
+        p = end;
+        continue;
+      }
+      if (e.size < 0) break;
+      const ds = p + e.hdr;
+      if (e.id === MKV.INFO || e.id === MKV.TRACKS) {
+        const b = await read(ds, e.size);
+        if (e.id === MKV.INFO) {
+          r.info = { ds, bytes: b.slice() };
+          for (let q = 0; q < b.length;) {
+            const c = ebmlHeader(b, q); if (!c || c.size < 0) break;
+            const d = q + c.hdr;
+            if (c.id === MKV.TCSCALE) r.tcScale = ebmlUint(b, d, c.size);
+            if (c.id === MKV.DURATION) { const dv = new DataView(b.buffer, b.byteOffset + d, c.size); r.duration = c.size === 4 ? dv.getFloat32(0) : dv.getFloat64(0); }
+            q = d + c.size;
+          }
+        } else {
+          r.tracks = { pos: p, end: ds + e.size };
+          for (let q = 0; q < b.length;) {
+            const c = ebmlHeader(b, q); if (!c || c.size < 0) break;
+            if (c.id === MKV.TRACKENTRY) {
+              let num = null, type = null;
+              for (let k = q + c.hdr; k < q + c.hdr + c.size;) {
+                const t = ebmlHeader(b, k); if (!t || t.size < 0) break;
+                if (t.id === MKV.TRACKNUM) num = ebmlUint(b, k + t.hdr, t.size);
+                if (t.id === MKV.TRACKTYPE) type = ebmlUint(b, k + t.hdr, t.size);
+                k += t.hdr + t.size;
+              }
+              if (type === 1 && r.videoTrack == null) r.videoTrack = num;
+            }
+            q += c.hdr + c.size;
+          }
+        }
+      }
+      p = ds + e.size;
+    }
+    if (!r.info || !r.tracks) throw new Error('Matroska Info/Tracks not found');
+    return r;
+  }
+  // Byte position of the first video keyframe block in a cluster (null if none).
+  async function mkvFirstKeyframe(read, cl, videoTrack) {
+    for (let q = cl.rest; q < cl.end;) {
+      const b = await read(q, 32), e = ebmlHeader(b, 0);
+      if (!e || e.size < 0) return null;
+      if (e.id === MKV.SIMPLEBLOCK) {
+        const tl = vintLen(b[e.hdr]), track = b[e.hdr] & (0xff >> tl);
+        const flags = b[e.hdr + tl + 2];
+        if (videoTrack == null || (track === videoTrack && (flags & 0x80))) return q;
+      } else if (e.id === MKV.BLOCKGROUP) {
+        let track = null, ref = false;
+        for (let k = q + e.hdr; k < q + e.hdr + e.size;) {
+          const cb = await read(k, 16), c = ebmlHeader(cb, 0);
+          if (!c || c.size < 0) break;
+          if (c.id === MKV.BLOCK) { const tl = vintLen(cb[c.hdr]); track = cb[c.hdr] & (0xff >> tl); }
+          if (c.id === MKV.REFBLOCK) ref = true;
+          k += c.hdr + c.size;
+        }
+        if (videoTrack == null || (track === videoTrack && !ref)) return q;
+      }
+      q += e.hdr + e.size;
+    }
+    return null;
+  }
+  // Plan a clip covering [fromSec, toSec]: starts at a video keyframe at or before `fromSec`,
+  // ends at the first cluster boundary at or after `toSec`. Timestamps are rebased to 0,
+  // Duration is rewritten and fresh SeekHead + Cues are added.
+  async function mkvClipPlan(read, fileSize, fromSec, toSec) {
+    if (!(toSec > fromSec)) throw new Error('clip end must be after its start');
+    const r = await mkvScanFile(read, fileSize, toSec);
+    const cl = r.clusters;
+    if (!cl.length) throw new Error('no clusters (no video data) found');
+    const sec = tc => tc * r.tcScale / 1e9;
+    let si = 0;
+    for (let i = 0; i < cl.length; i++) if (sec(cl[i].tc) <= fromSec) si = i;
+    let kf = null;
+    for (let i = si; i >= 0; i--) { kf = await mkvFirstKeyframe(read, cl[i], r.videoTrack); if (kf != null) { si = i; break; } }
+    if (kf == null) throw new Error('no video keyframe found before the clip start');
+    let ei = cl.length;
+    for (let i = si + 1; i < cl.length; i++) if (sec(cl[i].tc) >= toSec) { ei = i; break; }
+    const base = cl[si].tc;
+    const lastTc = ei < cl.length ? cl[ei].tc
+      : r.duration != null ? Math.max(r.duration, cl[cl.length - 1].tc)
+      : cl[cl.length - 1].tc + (cl.length > 1 ? cl[cl.length - 1].tc - cl[cl.length - 2].tc : 1e9 / r.tcScale);
+    const out = [];
+    for (let i = si; i < ei; i++) {
+      const c = cl[i], from = i === si ? kf : c.rest;
+      const tcEl = ebmlElUint(MKV.TIMECODE, c.tc - base);
+      const head = encId(MKV.CLUSTER).concat(encSize(tcEl.length + (c.end - from), 8), tcEl);
+      out.push({ head, src: [from, c.end], size: head.length + (c.end - from), tc: c.tc - base });
+    }
+    // Info: original children minus Duration / CRC / Void, plus the clip's Duration
+    const ib = r.info.bytes, keep = [];
+    for (let q = 0; q < ib.length;) {
+      const c = ebmlHeader(ib, q); if (!c || c.size < 0) break;
+      if (c.id !== MKV.DURATION && c.id !== MKV.CRC32 && c.id !== MKV.VOID) for (let k = q; k < q + c.hdr + c.size; k++) keep.push(ib[k]);
+      q += c.hdr + c.size;
+    }
+    const info = ebmlEl(MKV.INFO, keep.concat(ebmlElFloat(MKV.DURATION, lastTc - base)));
+    const tracksLen = r.tracks.end - r.tracks.pos;
+    const seekEntry = (id, pos) => ebmlEl(MKV.SEEK, ebmlEl(MKV.SEEKID, encId(id)).concat(ebmlElUint(MKV.SEEKPOS, pos, 8)));
+    const seekLen = ebmlEl(MKV.SEEKHEAD, seekEntry(MKV.INFO, 0).concat(seekEntry(MKV.TRACKS, 0), seekEntry(MKV.CUES, 0))).length;
+    let off = seekLen;
+    const infoPos = off; off += info.length;
+    const tracksPos = off; off += tracksLen;
+    const cuePts = [];
+    for (const c of out) {
+      cuePts.push(ebmlEl(MKV.CUEPOINT, ebmlElUint(MKV.CUETIME, c.tc).concat(
+        ebmlEl(MKV.CUETRACKPOS, ebmlElUint(MKV.CUETRACK, r.videoTrack || 1).concat(ebmlElUint(MKV.CUECLUSTERPOS, off))))));
+      off += c.size;
+    }
+    const cuesPos = off;
+    const cues = ebmlEl(MKV.CUES, [].concat(...cuePts));
+    const seekHead = ebmlEl(MKV.SEEKHEAD, seekEntry(MKV.INFO, infoPos).concat(seekEntry(MKV.TRACKS, tracksPos), seekEntry(MKV.CUES, cuesPos)));
+    const segLen = off + cues.length;
+    const parts = [{ src: [0, r.ebmlEnd] }, { bytes: Uint8Array.from(encId(MKV.SEGMENT).concat(encSize(segLen, 8))) },
+      { bytes: Uint8Array.from(seekHead) }, { bytes: Uint8Array.from(info) }, { src: [r.tracks.pos, r.tracks.end] }];
+    for (const c of out) parts.push({ bytes: Uint8Array.from(c.head) }, { src: c.src });
+    parts.push({ bytes: Uint8Array.from(cues) });
+    const size = parts.reduce((s, p) => s + (p.bytes ? p.bytes.length : p.src[1] - p.src[0]), 0);
+    return { parts, size, startSec: sec(base), endSec: sec(lastTc), clusters: out.length };
+  }
+
+  return { MKV, ebmlHeader, encSize, cachedReader, mkvScanFile, mkvClipPlan,
+           KPI_SHEET, SHEET_COLS, EXTRA_COLS, buildRows, rowsToCsv, rowsToTsv, countSummary,
            grayFromRGBA, meanAbsDiff, suggestDirection,
            KPI, fmtHMS, parseClock, fmtClock, videoToClock, frameCount, eventWindow, stripTimes, matchLabels,
            DEFAULT_RED, rgbToHsv, isRedRgb, redScore, thresholdFromSamples, lampIsOn, clamp,
@@ -1088,6 +1318,11 @@ const I18N = {
     rvSug_flat: 'No suggestion: little motion in the camera view', rvSug_symmetric: 'No suggestion: motion builds and fades evenly', rvSug_few: 'No suggestion',
     rvSugNote: 'Based on frame differences in the lower half of the camera view. A hint only: you decide.',
     rvSugWait: 'Suggestion appears when the filmstrip has loaded…', rvSugFull: 'Turn off Full frame to get a suggestion.',
+    clipTitle: 'Save a clip', clipHint: 'Copies the original video data into a new .mkv file: no re-encoding, so it is fast and identical to the recording. The start moves back to the previous keyframe, so the clip may begin a few seconds earlier.',
+    clipFrom: 'From', clipTo: 'To', clipNow: 'now', clipPlus60: '+60 s', clipUseCur: '◂ current', clipUseCurTip: 'Use the current video time',
+    clipSave: 'Save clip (.mkv)', clipWorking: 'Preparing clip…', clipSaved: 'Clip saved: {from} → {to} ({size}).', clipFailed: 'Clip failed: {why}',
+    clipNotMkv: 'Only MKV / WebM files can be clipped in the browser. For this file, use ffmpeg:',
+    rvClip: 'Save clip', rvClipTip: 'Save this event window as an .mkv clip',
     frame: 'f', storageFail: 'Autosave failed (browser storage full or blocked).'
   },
   zhs: {
@@ -1191,6 +1426,11 @@ const I18N = {
     rvSug_flat: '无建议：摄像头画面运动很少', rvSug_symmetric: '无建议：运动增强与减弱程度相当', rvSug_few: '无建议',
     rvSugNote: '依据摄像头画面下半部的帧差。仅供参考：由您决定。',
     rvSugWait: '缩略图载入后显示建议…', rvSugFull: '关闭“整帧”后才会给出建议。',
+    clipTitle: '保存片段', clipHint: '把原始视频数据复制到新的 .mkv 文件：不重新编码，速度快且与录像完全一致。起点会退到前一个关键帧，因此片段可能会提前几秒开始。',
+    clipFrom: '起点', clipTo: '终点', clipNow: '当前', clipPlus60: '+60 秒', clipUseCur: '◂ 当前', clipUseCurTip: '使用当前视频时间',
+    clipSave: '保存片段 (.mkv)', clipWorking: '正在准备片段…', clipSaved: '片段已保存：{from} → {to}（{size}）。', clipFailed: '保存片段失败：{why}',
+    clipNotMkv: '浏览器中只能截取 MKV / WebM 文件。此文件请使用 ffmpeg：',
+    rvClip: '保存片段', rvClipTip: '将此事件窗口保存为 .mkv 片段',
     frame: '帧', storageFail: '自动保存失败（浏览器存储已满或被禁用）。'
   },
   zht: {
@@ -1294,6 +1534,11 @@ const I18N = {
     rvSug_flat: '無建議：攝影機畫面運動很少', rvSug_symmetric: '無建議：運動增強與減弱程度相當', rvSug_few: '無建議',
     rvSugNote: '依據攝影機畫面下半部的影格差。僅供參考：由您決定。',
     rvSugWait: '縮圖載入後顯示建議…', rvSugFull: '關閉「整格」後才會給出建議。',
+    clipTitle: '儲存片段', clipHint: '把原始影片資料複製到新的 .mkv 檔：不重新編碼，速度快且與錄影完全一致。起點會退到前一個關鍵格，因此片段可能會提前幾秒開始。',
+    clipFrom: '起點', clipTo: '終點', clipNow: '目前', clipPlus60: '+60 秒', clipUseCur: '◂ 目前', clipUseCurTip: '使用目前影片時間',
+    clipSave: '儲存片段 (.mkv)', clipWorking: '正在準備片段…', clipSaved: '片段已儲存：{from} → {to}（{size}）。', clipFailed: '儲存片段失敗：{why}',
+    clipNotMkv: '瀏覽器中只能擷取 MKV / WebM 檔案。此檔案請使用 ffmpeg：',
+    rvClip: '儲存片段', rvClipTip: '將此事件視窗儲存為 .mkv 片段',
     frame: '格', storageFail: '自動儲存失敗（瀏覽器儲存空間已滿或被封鎖）。'
   }
 };
@@ -2803,6 +3048,45 @@ tfoot td{font-weight:700;}
 
 
 /* =====================================================================
+   SAVE CLIP (lossless MKV cut, built from slices of the original file)
+   ===================================================================== */
+const CLIP = { running: false };
+function downloadBlob(name, blob) {
+  const a = document.createElement('a'), url = URL.createObjectURL(blob);
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+async function saveClip(from, to) {
+  if (!V.ready) return toast(t('msgNeedVideo'), true);
+  if (CLIP.running) return;
+  const dur = vid.duration;
+  from = PL.clamp(from, 0, Number.isFinite(dur) ? dur : from);
+  if (!(to > from)) return toast(t('scanBadRange'), true);
+  CLIP.running = true; $('btnClip').disabled = $('rvClip').disabled = true;
+  $('clipInfo').textContent = t('clipWorking');
+  try {
+    const raw = (off, len) => V.file.slice(off, off + len).arrayBuffer().then(b => new Uint8Array(b));
+    const plan = await PL.mkvClipPlan(PL.cachedReader(raw), V.file.size, from, to);
+    const blob = new Blob(plan.parts.map(p => (p.bytes ? p.bytes : V.file.slice(p.src[0], p.src[1]))), { type: 'video/x-matroska' });
+    const tag = x => PL.fmtVideoTime(x).replace(/:/g, '-').replace(/\.\d+$/, '');
+    downloadBlob(`${baseName()}_clip_${tag(plan.startSec)}_${tag(plan.endSec)}.mkv`, blob);
+    const mb = (plan.size / 1048576).toFixed(1) + ' MB';
+    $('clipInfo').textContent = t('clipSaved', { from: PL.fmtVideoTime(plan.startSec), to: PL.fmtVideoTime(plan.endSec), size: mb });
+    toast($('clipInfo').textContent);
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    $('clipInfo').textContent = t('clipFailed', { why: msg });
+    if (/not a Matroska/.test(msg)) {
+      const n = V.file.name, base = n.replace(/\.[^.]+$/, '');
+      showModal(t('clipTitle'), esc(t('clipNotMkv')) + cmdBlock(`ffmpeg -ss ${from.toFixed(2)} -i "${n}" -t ${(to - from).toFixed(2)} -c copy "${base}_clip.mkv"`));
+    } else toast(t('clipFailed', { why: msg }), true);
+  } finally {
+    CLIP.running = false; $('btnClip').disabled = $('rvClip').disabled = false;
+  }
+}
+
+
+/* =====================================================================
    SESSION JSON
    ===================================================================== */
 function downloadText(name, text, mime) {
@@ -3021,6 +3305,15 @@ $('rvAnchorClock').addEventListener('change', applyAnchorInputs);
 $('rvAnchorClear').onclick = () => { const r = reviewStore(false); if (r) { r.anchor = null; scheduleSave(); } renderAnchor(); renderReviewList(); renderReviewPanel(); renderEvents(); };
 $('rvAnchorCap').classList.add('empty'); $('rvFpsCap').classList.add('empty');
 if ('requestVideoFrameCallback' in rvid) rvid.requestVideoFrameCallback(rvOnFrame);
+$('clipFromCur').onclick = () => { if (V.ready) $('clipFrom').value = PL.fmtVideoTime(curTime()); };
+$('clipToCur').onclick = () => { if (V.ready) $('clipTo').value = PL.fmtVideoTime(curTime()); };
+$('btnClip').onclick = () => {
+  const f = PL.parseTime($('clipFrom').value), e = PL.parseTime($('clipTo').value);
+  if (Number.isNaN(f) || Number.isNaN(e)) return toast(t('scanBadRange'), true);
+  const from = f == null ? curTime() : f, to = e == null ? from + 60 : e;
+  saveClip(from, to);
+};
+$('rvClip').onclick = () => { if (RV.win) saveClip(RV.win[0], RV.win[1]); };
 $('rvSugShow').onchange = e => { S.review.suggest = e.target.checked; scheduleSave(); renderSuggestion(); };
 
 // report controls
